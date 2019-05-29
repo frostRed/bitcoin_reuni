@@ -4,12 +4,15 @@ use std::ops::{Add, Div, Mul, Sub};
 /// Finite field element
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldElement {
-    num: u64,
-    prime: u64,
+    /// Finite field element number value
+    pub num: u64,
+    /// Finite field prime, finite field F = {0 , 1, 2, ..., p-1}
+    pub prime: u64,
 }
 
 impl Copy for FieldElement {}
 
+/// The Error of FieldElement operate
 #[derive(Debug, Eq, PartialEq)]
 pub enum FieldElementError {
     NotSamePrime,
@@ -26,7 +29,7 @@ impl fmt::Display for FieldElementError {
 impl std::error::Error for FieldElementError {
     fn description(&self) -> &str {
         match self {
-            FieldElementError::NotSamePrime => "NotSamePrime",
+            FieldElementError::NotSamePrime => "The FieldElements NotSamePrime",
         }
     }
 }
@@ -42,65 +45,112 @@ impl FieldElement {
             e += self.prime as i64 - 1;
         }
         debug_assert!(e > 0);
-        // reduce very big exp
+        // fast very big exp calculate
         let e = e as u64 % (self.prime - 1);
         FieldElement::new(self.num.pow(e as u32) % self.prime, self.prime)
+    }
+
+    pub fn prime(&self) -> u64 {
+        self.prime
     }
 }
 
 impl Add<Self> for FieldElement {
-    type Output = Result<Self, FieldElementError>;
+    type Output = FieldElement;
 
     fn add(self, rhs: Self) -> Self::Output {
         if self.prime != rhs.prime {
-            return Err(FieldElementError::NotSamePrime);
+            panic!("{}", FieldElementError::NotSamePrime);
         }
-        Ok(FieldElement::new(
-            (self.num + rhs.num) % self.prime,
-            self.prime,
-        ))
+        FieldElement::new((self.num + rhs.num) % self.prime, self.prime)
+    }
+}
+
+impl Add<u64> for FieldElement {
+    type Output = FieldElement;
+
+    fn add(self, rhs: u64) -> Self::Output {
+        FieldElement::new((self.num + rhs) % self.prime, self.prime)
+    }
+}
+
+impl Add<FieldElement> for u64 {
+    type Output = FieldElement;
+
+    fn add(self, rhs: FieldElement) -> Self::Output {
+        FieldElement::new((rhs.num + self) % rhs.prime, rhs.prime)
     }
 }
 
 impl Sub<Self> for FieldElement {
-    type Output = Result<Self, FieldElementError>;
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
         if self.prime != rhs.prime {
-            return Err(FieldElementError::NotSamePrime);
+            panic!("{}", FieldElementError::NotSamePrime);
         }
-        Ok(FieldElement::new(
-            (self.num - rhs.num) % self.prime,
-            self.prime,
-        ))
+        let mut num = ((self.num as i128 - rhs.num as i128) % (self.prime as i128));
+        if num < 0 {
+            num += self.prime as i128;
+        }
+        FieldElement::new(num as u64, self.prime)
+    }
+}
+
+impl Sub<u64> for FieldElement {
+    type Output = Self;
+
+    fn sub(self, rhs: u64) -> Self::Output {
+        FieldElement::new((self.num - rhs) % self.prime, self.prime)
     }
 }
 
 impl Mul<Self> for FieldElement {
-    type Output = Result<Self, FieldElementError>;
+    type Output = Self;
 
     fn mul(self, rhs: Self) -> Self::Output {
         if self.prime != rhs.prime {
-            return Err(FieldElementError::NotSamePrime);
+            panic!("{}", FieldElementError::NotSamePrime);
         }
-        Ok(FieldElement::new(
-            (self.num * rhs.num) % self.prime,
-            self.prime,
-        ))
+        FieldElement::new((self.num * rhs.num) % self.prime, self.prime)
+    }
+}
+
+impl Mul<u64> for FieldElement {
+    type Output = FieldElement;
+    fn mul(self, rhs: u64) -> Self::Output {
+        FieldElement::new((self.num * rhs) % self.prime, self.prime)
+    }
+}
+
+impl Mul<FieldElement> for u64 {
+    type Output = FieldElement;
+    fn mul(self, rhs: FieldElement) -> Self::Output {
+        FieldElement::new((rhs.num * self) % rhs.prime, rhs.prime)
     }
 }
 
 impl Div<Self> for FieldElement {
-    type Output = Result<Self, FieldElementError>;
+    type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        if self.prime != rhs.prime {
-            return Err(FieldElementError::NotSamePrime);
+        let mut num =
+            (self.num as i128 * rhs.num.pow(self.prime as u32 - 2u32) as i128) % self.prime as i128;
+        if num < 0 {
+            num += self.prime as i128;
         }
-        Ok(FieldElement::new(
-            (self.num * rhs.num.pow(self.prime as u32 - 2u32)) % self.prime,
+        FieldElement::new(num as u64, self.prime)
+    }
+}
+
+impl Div<u64> for FieldElement {
+    type Output = Self;
+
+    fn div(self, rhs: u64) -> Self::Output {
+        FieldElement::new(
+            (self.num * rhs.pow(self.prime as u32 - 2u32)) % self.prime,
             self.prime,
-        ))
+        )
     }
 }
 
@@ -133,10 +183,15 @@ mod test {
         let a = FieldElement::new(7, 13);
         let b = FieldElement::new(12, 13);
         let c = FieldElement::new(6, 13);
-        let d = FieldElement::new(6, 17);
+        assert_eq!(a + b, c);
+    }
 
-        assert_eq!(a + b, Ok(c));
-        assert_eq!(a + d, Err(FieldElementError::NotSamePrime));
+    #[test]
+    #[should_panic(expected = "NotSamePrime Error")]
+    fn test_add_panic() {
+        let a = FieldElement::new(7, 13);
+        let b = FieldElement::new(6, 17);
+        a + b;
     }
 
     #[test]
@@ -144,9 +199,15 @@ mod test {
         let e1 = FieldElement::new(2, 3);
         let e2 = FieldElement::new(1, 3);
         let e3 = FieldElement::new(1, 5);
+        assert_eq!(e1 - e2, FieldElement::new(1, 3));
+    }
 
-        assert_eq!(e1 - e2, Ok(FieldElement::new(1, 3)));
-        assert_eq!(e1 - e3, Err(FieldElementError::NotSamePrime));
+    #[test]
+    #[should_panic(expected = "NotSamePrime Error")]
+    fn test_sub_panic() {
+        let e1 = FieldElement::new(2, 3);
+        let e3 = FieldElement::new(1, 5);
+        e1 - e3;
     }
 
     #[test]
@@ -154,12 +215,17 @@ mod test {
         let a = FieldElement::new(7, 13);
         let b = FieldElement::new(12, 13);
         let c = FieldElement::new(6, 13);
-        let d = FieldElement::new(6, 17);
 
-        assert_eq!(a * b, Ok(c));
-        assert_eq!(a * d, Err(FieldElementError::NotSamePrime));
+        assert_eq!(a * b, c);
     }
 
+    #[test]
+    #[should_panic(expected = "NotSamePrime Error")]
+    fn test_mul_panic() {
+        let a = FieldElement::new(7, 13);
+        let d = FieldElement::new(6, 17);
+        a * d;
+    }
     #[test]
     fn test_exp() {
         let a = FieldElement::new(3, 13);
@@ -178,7 +244,7 @@ mod test {
         let e2 = FieldElement::new(7, 19);
         let e3 = FieldElement::new(5, 19);
 
-        assert_eq!(e1 / e2, Ok(FieldElement::new(3, 19)));
-        assert_eq!(e2 / e3, Ok(FieldElement::new(9, 19)));
+        assert_eq!(e1 / e2, FieldElement::new(3, 19));
+        assert_eq!(e2 / e3, FieldElement::new(9, 19));
     }
 }
