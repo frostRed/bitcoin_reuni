@@ -146,7 +146,7 @@ impl Add<Point> for Point {
 }
 
 mod test {
-    use crate::point::{EllipticCurve, Point, PointError, PointValue};
+    use crate::ec::point::{EllipticCurve, Point, PointError, PointValue};
 
     #[test]
     fn test_display() {

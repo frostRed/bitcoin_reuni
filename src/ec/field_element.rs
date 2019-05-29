@@ -161,7 +161,7 @@ impl Display for FieldElement {
 }
 
 mod test {
-    use crate::field_element::{FieldElement, FieldElementError};
+    use crate::ec::field_element::{FieldElement, FieldElementError};
 
     #[test]
     fn test_display() {

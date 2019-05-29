@@ -1,4 +1,4 @@
-use crate::field_element::FieldElement;
+use crate::ec::field_element::FieldElement;
 use std::fmt;
 use std::ops::Add;
 
@@ -165,8 +165,8 @@ impl Add<Point> for Point {
 }
 
 mod test {
-    use crate::field_element::FieldElement;
-    use crate::point_field_element::{EllipticCurve, Point, PointError, PointValue};
+    use crate::ec::field_element::FieldElement;
+    use crate::ec::point_field_element::{EllipticCurve, Point, PointError, PointValue};
 
     #[test]
     fn test_display() {
