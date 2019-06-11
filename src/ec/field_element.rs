@@ -1,3 +1,6 @@
+use num_bigint::{BigInt, BigUint, Sign};
+use num_traits::{zero, One, Zero};
+
 use std::fmt::{self, Display};
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -5,12 +8,10 @@ use std::ops::{Add, Div, Mul, Sub};
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldElement {
     /// Finite field element number value
-    pub num: u64,
+    pub num: BigUint,
     /// Finite field prime, finite field F = {0 , 1, 2, ..., p-1}
-    pub prime: u64,
+    pub prime: BigUint,
 }
-
-impl Copy for FieldElement {}
 
 /// The Error of FieldElement operate
 #[derive(Debug, Eq, PartialEq)]
@@ -35,23 +36,26 @@ impl std::error::Error for FieldElementError {
 }
 
 impl FieldElement {
-    pub fn new(num: u64, prime: u64) -> Self {
-        FieldElement { num, prime }
-    }
-
-    pub fn pow(self, exp: i32) -> Self {
-        let mut e = exp as i64;
-        if exp < 0 {
-            e += self.prime as i64 - 1;
+    pub fn new<T: Into<BigUint>>(num: T, prime: T) -> Self {
+        FieldElement {
+            num: num.into(),
+            prime: prime.into(),
         }
-        debug_assert!(e > 0);
-        // fast very big exp calculate
-        let e = e as u64 % (self.prime - 1);
-        FieldElement::new(self.num.pow(e as u32) % self.prime, self.prime)
     }
 
-    pub fn prime(&self) -> u64 {
-        self.prime
+    pub fn pow(&self, exp: isize) -> Self {
+        let mut exp = BigInt::from(exp);
+        while exp < zero() {
+            exp = exp + BigInt::from_biguint(Sign::Plus, self.prime.clone() - BigUint::from(1u32));
+        }
+        let mut e = exp.to_biguint().expect("BigInt convert to BigUint failed");
+        // fast very big exp calculate
+        let e = e % (self.prime.clone() - BigUint::from(1u32));
+        FieldElement::new(self.num.modpow(&e, &self.prime), self.prime.clone())
+    }
+
+    pub fn prime(&self) -> BigUint {
+        self.prime.clone()
     }
 }
 
@@ -62,23 +66,32 @@ impl Add<Self> for FieldElement {
         if self.prime != rhs.prime {
             panic!("{}", FieldElementError::NotSamePrime);
         }
-        FieldElement::new((self.num + rhs.num) % self.prime, self.prime)
+        FieldElement::new(
+            (self.num + rhs.num) % self.prime.clone(),
+            self.prime.clone(),
+        )
     }
 }
 
-impl Add<u64> for FieldElement {
+impl<T> Add<T> for FieldElement
+where
+    T: Into<BigUint>,
+{
     type Output = FieldElement;
 
-    fn add(self, rhs: u64) -> Self::Output {
-        FieldElement::new((self.num + rhs) % self.prime, self.prime)
+    fn add(self, rhs: T) -> Self::Output {
+        FieldElement::new(
+            (self.num + rhs.into()) % self.prime.clone(),
+            self.prime.clone(),
+        )
     }
 }
 
-impl Add<FieldElement> for u64 {
+impl Add<FieldElement> for BigUint {
     type Output = FieldElement;
 
     fn add(self, rhs: FieldElement) -> Self::Output {
-        FieldElement::new((rhs.num + self) % rhs.prime, rhs.prime)
+        FieldElement::new((rhs.num + self) % rhs.prime.clone(), rhs.prime.clone())
     }
 }
 
@@ -89,19 +102,33 @@ impl Sub<Self> for FieldElement {
         if self.prime != rhs.prime {
             panic!("{}", FieldElementError::NotSamePrime);
         }
-        let mut num = ((self.num as i128 - rhs.num as i128) % (self.prime as i128));
-        if num < 0 {
-            num += self.prime as i128;
+        let mut num: BigInt = zero();
+        if self.num >= rhs.num {
+            num = BigInt::from_biguint(Sign::Plus, (self.num - rhs.num) % self.prime.clone());
+        } else {
+            num = BigInt::from_biguint(Sign::Minus, (rhs.num - self.num) % self.prime.clone());
         }
-        FieldElement::new(num as u64, self.prime)
+        while num < zero() {
+            num = num + BigInt::from_biguint(Sign::Plus, self.prime.clone());
+        }
+        FieldElement::new(
+            num.to_biguint().expect("BigInt convert to BigUint failed"),
+            self.prime.clone(),
+        )
     }
 }
 
-impl Sub<u64> for FieldElement {
+impl<T> Sub<T> for FieldElement
+where
+    T: Into<BigUint>,
+{
     type Output = Self;
 
-    fn sub(self, rhs: u64) -> Self::Output {
-        FieldElement::new((self.num - rhs) % self.prime, self.prime)
+    fn sub(self, rhs: T) -> Self::Output {
+        FieldElement::new(
+            (self.num - rhs.into()) % self.prime.clone(),
+            self.prime.clone(),
+        )
     }
 }
 
@@ -112,21 +139,30 @@ impl Mul<Self> for FieldElement {
         if self.prime != rhs.prime {
             panic!("{}", FieldElementError::NotSamePrime);
         }
-        FieldElement::new((self.num * rhs.num) % self.prime, self.prime)
+        FieldElement::new(
+            (self.num * rhs.num) % self.prime.clone(),
+            self.prime.clone(),
+        )
     }
 }
 
-impl Mul<u64> for FieldElement {
+impl<T> Mul<T> for FieldElement
+where
+    T: Into<BigUint>,
+{
     type Output = FieldElement;
-    fn mul(self, rhs: u64) -> Self::Output {
-        FieldElement::new((self.num * rhs) % self.prime, self.prime)
+    fn mul(self, rhs: T) -> Self::Output {
+        FieldElement::new(
+            (self.num * rhs.into()) % self.prime.clone(),
+            self.prime.clone(),
+        )
     }
 }
 
-impl Mul<FieldElement> for u64 {
+impl Mul<FieldElement> for BigUint {
     type Output = FieldElement;
     fn mul(self, rhs: FieldElement) -> Self::Output {
-        FieldElement::new((rhs.num * self) % rhs.prime, rhs.prime)
+        FieldElement::new((rhs.num * self) % rhs.prime.clone(), rhs.prime.clone())
     }
 }
 
@@ -134,23 +170,22 @@ impl Div<Self> for FieldElement {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let mut num =
-            (self.num as i128 * rhs.num.pow(self.prime as u32 - 2u32) as i128) % self.prime as i128;
-        if num < 0 {
-            num += self.prime as i128;
-        }
-        FieldElement::new(num as u64, self.prime)
+        let t = self.prime.clone() - BigUint::from(2u32);
+        let num = (self.num * rhs.num.modpow(&t, &self.prime)) % self.prime.clone();
+        FieldElement::new(num, self.prime.clone())
     }
 }
 
-impl Div<u64> for FieldElement {
+impl<T> Div<T> for FieldElement
+where
+    T: Into<BigUint>,
+{
     type Output = Self;
 
-    fn div(self, rhs: u64) -> Self::Output {
-        FieldElement::new(
-            (self.num * rhs.pow(self.prime as u32 - 2u32)) % self.prime,
-            self.prime,
-        )
+    fn div(self, rhs: T) -> Self::Output {
+        let t = self.prime.clone() - BigUint::from(2u32);
+        let num = (self.num * rhs.into().modpow(&t, &self.prime)) % self.prime.clone();
+        FieldElement::new(num, self.prime.clone())
     }
 }
 
@@ -165,14 +200,14 @@ mod test {
 
     #[test]
     fn test_display() {
-        let a = FieldElement::new(1, 3);
+        let a = FieldElement::new(1u32, 3u32);
         assert_eq!("FieldElement_1(3)", format!("{}", a));
     }
 
     #[test]
     fn test_eq() {
-        let a = FieldElement::new(7, 13);
-        let b = FieldElement::new(6, 13);
+        let a = FieldElement::new(7u32, 13u32);
+        let b = FieldElement::new(6u32, 13u32);
 
         assert_ne!(a, b);
         assert_eq!(a, a);
@@ -180,41 +215,41 @@ mod test {
 
     #[test]
     fn test_add() {
-        let a = FieldElement::new(7, 13);
-        let b = FieldElement::new(12, 13);
-        let c = FieldElement::new(6, 13);
+        let a = FieldElement::new(7u32, 13u32);
+        let b = FieldElement::new(12u32, 13u32);
+        let c = FieldElement::new(6u32, 13u32);
         assert_eq!(a + b, c);
     }
 
     #[test]
     #[should_panic(expected = "NotSamePrime Error")]
     fn test_add_panic() {
-        let a = FieldElement::new(7, 13);
-        let b = FieldElement::new(6, 17);
+        let a = FieldElement::new(7u32, 13u32);
+        let b = FieldElement::new(6u32, 17u32);
         a + b;
     }
 
     #[test]
     fn test_sub() {
-        let e1 = FieldElement::new(2, 3);
-        let e2 = FieldElement::new(1, 3);
-        let e3 = FieldElement::new(1, 5);
-        assert_eq!(e1 - e2, FieldElement::new(1, 3));
+        let e1 = FieldElement::new(2u32, 3u32);
+        let e2 = FieldElement::new(1u32, 3u32);
+        let e3 = FieldElement::new(1u32, 5u32);
+        assert_eq!(e1 - e2, FieldElement::new(1u32, 3u32));
     }
 
     #[test]
     #[should_panic(expected = "NotSamePrime Error")]
     fn test_sub_panic() {
-        let e1 = FieldElement::new(2, 3);
-        let e3 = FieldElement::new(1, 5);
+        let e1 = FieldElement::new(2u32, 3u32);
+        let e3 = FieldElement::new(1u32, 5u32);
         e1 - e3;
     }
 
     #[test]
     fn test_mul() {
-        let a = FieldElement::new(7, 13);
-        let b = FieldElement::new(12, 13);
-        let c = FieldElement::new(6, 13);
+        let a = FieldElement::new(7u32, 13u32);
+        let b = FieldElement::new(12u32, 13u32);
+        let c = FieldElement::new(6u32, 13u32);
 
         assert_eq!(a * b, c);
     }
@@ -222,29 +257,30 @@ mod test {
     #[test]
     #[should_panic(expected = "NotSamePrime Error")]
     fn test_mul_panic() {
-        let a = FieldElement::new(7, 13);
-        let d = FieldElement::new(6, 17);
+        let a = FieldElement::new(7u32, 13u32);
+        let d = FieldElement::new(6u32, 17u32);
         a * d;
     }
+
     #[test]
     fn test_exp() {
-        let a = FieldElement::new(3, 13);
-        let b = FieldElement::new(1, 13);
+        let a = FieldElement::new(3u32, 13u32);
+        let b = FieldElement::new(1u32, 13u32);
 
         assert_eq!(a.pow(3), b);
 
-        let a = FieldElement::new(7, 13);
-        let b = FieldElement::new(8, 13);
+        let a = FieldElement::new(7u32, 13u32);
+        let b = FieldElement::new(8u32, 13u32);
         assert_eq!(a.pow(-3), b);
     }
 
     #[test]
     fn test_div() {
-        let e1 = FieldElement::new(2, 19);
-        let e2 = FieldElement::new(7, 19);
-        let e3 = FieldElement::new(5, 19);
+        let e1 = FieldElement::new(2u32, 19u32);
+        let e2 = FieldElement::new(7u32, 19u32);
+        let e3 = FieldElement::new(5u32, 19u32);
 
-        assert_eq!(e1 / e2, FieldElement::new(3, 19));
-        assert_eq!(e2 / e3, FieldElement::new(9, 19));
+        assert_eq!(e1 / e2.clone(), FieldElement::new(3u32, 19u32));
+        assert_eq!(e2 / e3, FieldElement::new(9u32, 19u32));
     }
 }
