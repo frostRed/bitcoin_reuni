@@ -1,31 +1,41 @@
+use crate::ec::field_element::{FieldElement, U256, U512};
 use std::fmt;
-use std::ops::Add;
+use std::ops::{Add, Mul};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum PointValue {
     InfPoint,
     NormalPoint {
         /// `x` axis
-        x: i64,
+        x: FieldElement,
         /// `y` axis
-        y: i64,
+        y: FieldElement,
     },
 }
 
 impl Copy for PointValue {}
 
-/// Elliptic curve, y^2 = x^3 + a*x + b
+/// Elliptic curve, (y^2) % primer = (x^3 + a*x + b) % primer
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct EllipticCurve {
     /// Elliptic curve `a` argument
-    a: i64,
+    a: FieldElement,
     /// Elliptic curve `b` argument
-    b: i64,
+    b: FieldElement,
 }
 impl Copy for EllipticCurve {}
 
+impl Default for EllipticCurve {
+    fn default() -> Self {
+        EllipticCurve {
+            a: FieldElement::new(0, 223),
+            b: FieldElement::new(7, 223),
+        }
+    }
+}
+
 impl EllipticCurve {
-    fn new(a: i64, b: i64) -> Self {
+    fn new(a: FieldElement, b: FieldElement) -> Self {
         EllipticCurve { a, b }
     }
 }
@@ -47,8 +57,8 @@ impl fmt::Display for Point {
             ),
             PointValue::NormalPoint { x, y } => write!(
                 f,
-                "({}, {})_y^2 = x^3 + {}*x + {}",
-                x, y, self.elliptic_curve.a, self.elliptic_curve.b
+                "Point({}, {})_{}_{} FieldElement({})",
+                x.num, y.num, self.elliptic_curve.a.num, self.elliptic_curve.b.num, x.prime
             ),
         }
     }
@@ -80,7 +90,12 @@ impl std::error::Error for PointError {
 }
 
 impl Point {
-    pub fn new(x: i64, y: i64, a: i64, b: i64) -> Result<Self, PointError> {
+    pub fn new(
+        x: FieldElement,
+        y: FieldElement,
+        a: FieldElement,
+        b: FieldElement,
+    ) -> Result<Self, PointError> {
         if y.pow(2) != x.pow(3) + a * x + b {
             return Err(PointError::NotInEllipticCurves);
         }
@@ -90,7 +105,7 @@ impl Point {
         })
     }
 
-    pub fn inf(a: i64, b: i64) -> Self {
+    pub fn inf(a: FieldElement, b: FieldElement) -> Self {
         Point {
             point: PointValue::InfPoint,
             elliptic_curve: EllipticCurve::new(a, b),
@@ -121,12 +136,12 @@ impl Add<Point> for Point {
                 if x == rhs_x {
                     // vertical line
                     if y == rhs_y {
-                        if y == 0 {
+                        if y.num == U256::from(0) {
                             return Self::inf(a, b);
                         }
 
-                        let s = (3 * x.pow(2) + a) / (2 * y);
-                        let ret_x = s.pow(2) - 2 * x;
+                        let s = (U256::from(3) * x.pow(2) + a) / (U256::from(2) * y);
+                        let ret_x = s.pow(2) - U256::from(2) * x;
                         let ret_y = s * (x - ret_x) - y;
                         return Point::new(ret_x, ret_y, a, b).expect("Point add error");
                     }
@@ -145,47 +160,106 @@ impl Add<Point> for Point {
     }
 }
 
+impl<T> Mul<T> for Point
+where
+    T: Into<u64>,
+{
+    type Output = Self;
+    fn mul(self, rhs: T) -> Self::Output {
+        let mut coef = rhs.into();
+        let mut current = self;
+
+        let mut result = Point::inf(self.elliptic_curve.a, self.elliptic_curve.b);
+        while coef > 0 {
+            if coef & 1 == 1 {
+                result = result + current;
+            }
+            current = current + current;
+            coef = coef >> 1;
+        }
+        result
+    }
+}
+
 mod test {
+    use crate::ec::field_element::FieldElement;
     use crate::ec::point::{EllipticCurve, Point, PointError, PointValue};
 
     #[test]
     fn test_display() {
-        let p1 = Point::new(-1, -1, 5, 7).unwrap();
-        assert_eq!("(-1, -1)_y^2 = x^3 + 5*x + 7", format!("{}", p1));
+        let x = FieldElement::new(192, 223);
+        let y = FieldElement::new(105, 223);
+        let a = FieldElement::new(0, 223);
+        let b = FieldElement::new(7, 223);
+        let p1 = Point::new(x, y, a, b).unwrap();
+        assert_eq!("Point(192, 105)_0_7 FieldElement(223)", format!("{}", p1));
     }
 
     #[test]
-    fn test_new() {
-        assert_eq!(
-            Point::new(-1, -1, 5, 7).unwrap(),
-            Point {
-                point: PointValue::NormalPoint { x: -1, y: -1 },
-                elliptic_curve: EllipticCurve { a: 5, b: 7 }
-            }
-        );
-        assert_eq!(
-            Point::new(-1, -2, 5, 7),
-            Err(PointError::NotInEllipticCurves)
-        );
+    fn test_on_curve() {
+        let prime = 223;
+        let a = FieldElement::new(0, prime);
+        let b = FieldElement::new(7, 223);
+
+        let valid_points: [(u64, u64); 3] = [(192, 105), (17, 56), (1, 193)];
+        let invalid_points: [(u64, u64); 2] = [(200, 119), (42, 99)];
+
+        for (x, y) in valid_points.iter() {
+            let x = FieldElement::new(*x, prime);
+            let y = FieldElement::new(*y, prime);
+            assert!(Point::new(x, y, a, b).is_ok())
+        }
+
+        for (x, y) in invalid_points.iter() {
+            let x = FieldElement::new(*x, prime);
+            let y = FieldElement::new(*y, prime);
+            assert_eq!(Point::new(x, y, a, b), Err(PointError::NotInEllipticCurves))
+        }
     }
 
     #[test]
     fn test_add() {
-        let p1 = Point::new(-1, -1, 5, 7).unwrap();
-        let p2 = Point::new(-1, 1, 5, 7).unwrap();
-        let p3 = Point::new(2, 5, 5, 7).unwrap();
-        let inf = Point::inf(5, 7);
+        let prime = 223;
+        let a = FieldElement::new(0, prime);
+        let b = FieldElement::new(7, 223);
 
-        assert_eq!(p1 + inf, p1);
-        assert_eq!(p2 + inf, p2);
-        assert_eq!(p1 + p2, inf);
-        assert_eq!(p1 + p3, Point::new(3, -7, 5, 7).unwrap());
+        let x1 = FieldElement::new(192, prime);
+        let y1 = FieldElement::new(105, prime);
+
+        let x2 = FieldElement::new(17, prime);
+        let y2 = FieldElement::new(56, prime);
+
+        let p1 = Point::new(x1, y1, a, b).unwrap();
+        let p2 = Point::new(x2, y2, a, b).unwrap();
+
+        let inf = Point::inf(a, b);
+
         assert_eq!(
-            p1 + p1,
-            Point {
-                point: PointValue::NormalPoint { x: 18, y: 77 },
-                elliptic_curve: EllipticCurve { a: 5, b: 7 }
-            }
-        )
+            "Point(170, 142)_0_7 FieldElement(223)",
+            format!("{}", p1 + p2)
+        );
+
+        assert_eq!(inf + p1, p1);
+
+        assert_eq!(inf + p1 + p1, p1 + p1);
+    }
+
+    #[test]
+    fn test_scalar_mul() {
+        let prime = 223;
+        let a = FieldElement::new(0, prime);
+        let b = FieldElement::new(7, 223);
+
+        let x = FieldElement::new(15, prime);
+        let y = FieldElement::new(86, prime);
+
+        let p = Point::new(x, y, a, b).unwrap();
+
+        assert_eq!(
+            "Point(15, 86)_0_7 FieldElement(223)",
+            format!("{}", p * 1u64)
+        );
+
+        assert_eq!(p * 7u64, Point::inf(a, b));
     }
 }
