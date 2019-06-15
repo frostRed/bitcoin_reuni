@@ -1,10 +1,12 @@
-use super::utils::{big_uint_to_u256, u512_to_big_uint, U256, U512};
+pub mod ec;
+mod s256_field;
+pub mod s256_point;
 
 mod test {
-    use super::{big_uint_to_u256, u512_to_big_uint, U256, U512};
-    use crate::ec::field_element::FieldElement;
-    use crate::ec::point::Point;
-    use crate::ec::utils::u512_to_u256;
+    use super::ec::field_element::FieldElement;
+    use super::ec::point::Point;
+    use super::ec::utils::{big_uint_to_u256, u512_to_big_uint, u512_to_u256, U256, U512};
+    use crate::secp256k1::ec::utils::u256_parse_str;
     use num_bigint::BigUint;
 
     #[test]
@@ -36,31 +38,25 @@ mod test {
 
     #[test]
     fn test_u256_scala_mul() {
-        let gx = BigUint::parse_bytes(
+        let gx = u256_parse_str(
             b"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
             16,
-        )
-        .unwrap();
-        let gx = big_uint_to_u256(&gx);
+        );
 
-        let gy = BigUint::parse_bytes(
+        let gy = u256_parse_str(
             b"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
             16,
-        )
-        .unwrap();
-        let gy = big_uint_to_u256(&gy);
+        );
 
         let p = U512::from(2u32).pow(U512::from(256u32))
             - U512::from(2u32).pow(U512::from(32u32))
             - U512::from(977u32);
         let p = u512_to_u256(p);
 
-        let n = BigUint::parse_bytes(
+        let n = u256_parse_str(
             b"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
             16,
-        )
-        .unwrap();
-        let n = big_uint_to_u256(&n);
+        );
 
         let x = FieldElement::new(gx, p);
         let y = FieldElement::new(gy, p);

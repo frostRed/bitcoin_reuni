@@ -1,4 +1,4 @@
-mod ec;
+mod secp256k1;
 #[macro_use]
 extern crate uint;
 

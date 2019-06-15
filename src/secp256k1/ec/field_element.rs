@@ -246,7 +246,7 @@ impl Display for FieldElement {
 }
 
 mod test {
-    use crate::ec::field_element::FieldElement;
+    use super::FieldElement;
 
     #[test]
     fn test_display() {

@@ -184,8 +184,8 @@ where
 }
 
 mod test {
-    use crate::ec::field_element::FieldElement;
-    use crate::ec::point::{Point, PointError};
+    use super::FieldElement;
+    use super::{Point, PointError};
 
     #[test]
     fn test_display() {
