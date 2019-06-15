@@ -1,4 +1,5 @@
-use crate::ec::field_element::{FieldElement, U256, U512};
+use super::field_element::FieldElement;
+use super::utils::U256;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -96,7 +97,9 @@ impl Point {
         a: FieldElement,
         b: FieldElement,
     ) -> Result<Self, PointError> {
-        if y.pow(2) != x.pow(3) + a * x + b {
+        let left = y.pow(2);
+        let right = x.pow(3) + a * x + b;
+        if left != right {
             return Err(PointError::NotInEllipticCurves);
         }
         Ok(Point {
@@ -139,7 +142,6 @@ impl Add<Point> for Point {
                         if y.num == U256::from(0) {
                             return Self::inf(a, b);
                         }
-
                         let s = (U256::from(3) * x.pow(2) + a) / (U256::from(2) * y);
                         let ret_x = s.pow(2) - U256::from(2) * x;
                         let ret_y = s * (x - ret_x) - y;
@@ -162,7 +164,7 @@ impl Add<Point> for Point {
 
 impl<T> Mul<T> for Point
 where
-    T: Into<u64>,
+    T: Into<U256>,
 {
     type Output = Self;
     fn mul(self, rhs: T) -> Self::Output {
@@ -170,8 +172,8 @@ where
         let mut current = self;
 
         let mut result = Point::inf(self.elliptic_curve.a, self.elliptic_curve.b);
-        while coef > 0 {
-            if coef & 1 == 1 {
+        while coef > U256::from(0) {
+            if coef & U256::from(1u32) == U256::from(1u32) {
                 result = result + current;
             }
             current = current + current;
@@ -183,7 +185,7 @@ where
 
 mod test {
     use crate::ec::field_element::FieldElement;
-    use crate::ec::point::{EllipticCurve, Point, PointError, PointValue};
+    use crate::ec::point::{Point, PointError};
 
     #[test]
     fn test_display() {
