@@ -3,6 +3,8 @@ use super::s256_field::S256Field;
 use super::ec::point::PointError;
 
 use super::ec::utils::{big_uint_to_u256, u256_parse_str, U256};
+use super::signature::Signature;
+use crate::secp256k1::ec::utils::{u256_modmul, u256_modpow};
 use num_bigint::BigUint;
 use std::fmt;
 use std::ops::{Add, Mul};
@@ -22,7 +24,7 @@ impl Copy for PointValue {}
 
 /// Elliptic curve, (y^2) % primer = (x^3 + a*x + b) % primer
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct Secp256K1EllipticCurve {
+pub struct Secp256K1EllipticCurve {
     /// Elliptic curve `a` argument
     a: S256Field,
     /// Elliptic curve `b` argument
@@ -134,6 +136,18 @@ impl S256Point {
             PointValue::NormalPoint { x, y } => Some((x.num, y.num)),
         }
     }
+
+    pub fn verify(self, z: U256, sig: Signature) -> bool {
+        let n = Secp256K1EllipticCurve::n();
+        let s_inv = u256_modpow(sig.s, n - u256_parse_str(b"2", 10), n);
+
+        let u = u256_modmul(z, s_inv, n);
+        let v = u256_modmul(sig.r, s_inv, n);
+
+        let g = S256Point::gen_point();
+        let t = g * u + self * v;
+        sig.r == t.coordinate().unwrap().0
+    }
 }
 
 impl Add<S256Point> for S256Point {
@@ -199,6 +213,7 @@ where
 mod test {
     use crate::secp256k1::ec::utils::{pow, u256_modmul, u256_modpow, u256_mul, u256_parse_str};
     use crate::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
+    use crate::secp256k1::signature::Signature;
 
     #[test]
     fn test_s256_point() {
@@ -222,6 +237,8 @@ mod test {
             b"8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec",
             16,
         );
+        let sig = Signature::new(r, s);
+
         let px = u256_parse_str(
             b"04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574",
             16,
@@ -230,17 +247,7 @@ mod test {
             b"82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4",
             16,
         );
-
-        let n = Secp256K1EllipticCurve::n();
-
         let point = S256Point::new(px.into(), py.into()).unwrap();
-        let s_inv = u256_modpow(s, n - u256_parse_str(b"2", 10), n);
-
-        let u = u256_modmul(z, s_inv, n);
-        let v = u256_modmul(r, s_inv, n);
-
-        let g = S256Point::gen_point();
-        let t = g * u + point * v;
-        assert_eq!(r, t.coordinate().unwrap().0)
+        assert!(point.verify(z, sig))
     }
 }

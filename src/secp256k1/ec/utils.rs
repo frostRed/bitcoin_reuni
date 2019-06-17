@@ -1,6 +1,7 @@
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::identities::One;
+use rand::Rng;
 
 construct_uint! {
     pub struct U256(4);
@@ -83,4 +84,13 @@ pub fn u256_modmul(lhs: U256, rhs: U256, modulus: U256) -> U256 {
 pub fn u256_parse_str(str: &[u8], radix: u32) -> U256 {
     let v = BigUint::parse_bytes(str, radix).expect("literal number convert to BigUint failed");
     big_uint_to_u256(&v)
+}
+
+pub fn u256_random() -> U256 {
+    let mut rng = rand::thread_rng();
+    let n1 = rng.gen::<u128>();
+    let n2 = rng.gen::<u128>();
+    let ret =
+        BigUint::from(n1) * pow(BigUint::from(2u32), BigUint::from(128u32)) + BigUint::from(n2);
+    big_uint_to_u256(&ret)
 }

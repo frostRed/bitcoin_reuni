@@ -1,6 +1,8 @@
 pub mod ec;
+pub mod private_key;
 mod s256_field;
 pub mod s256_point;
+pub mod signature;
 
 mod test {
     use super::ec::field_element::FieldElement;
