@@ -2,6 +2,7 @@ use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::identities::One;
 use rand::Rng;
+use sha2::{Digest, Sha256};
 
 construct_uint! {
     pub struct U256(4);
@@ -67,18 +68,18 @@ pub fn u256_modpow(value: U256, exp: U256, modulus: U256) -> U256 {
 }
 
 pub fn u256_mul(lhs: U256, rhs: U256) -> U256 {
-    let lhs = u256_to_u512(lhs);
-    let rhs = u256_to_u512(rhs);
+    let lhs = u256_to_big_uint(lhs);
+    let rhs = u256_to_big_uint(rhs);
 
-    u512_to_u256(lhs * rhs)
+    big_uint_to_u256(&(lhs * rhs))
 }
 
 pub fn u256_modmul(lhs: U256, rhs: U256, modulus: U256) -> U256 {
-    let lhs = u256_to_u512(lhs);
-    let rhs = u256_to_u512(rhs);
-    let modulus = u256_to_u512(modulus);
+    let lhs = u256_to_big_uint(lhs);
+    let rhs = u256_to_big_uint(rhs);
+    let modulus = u256_to_big_uint(modulus);
 
-    u512_to_u256((lhs * rhs) % modulus)
+    big_uint_to_u256(&(lhs * rhs % modulus))
 }
 
 pub fn u256_parse_str(str: &[u8], radix: u32) -> U256 {
@@ -93,4 +94,13 @@ pub fn u256_random() -> U256 {
     let ret =
         BigUint::from(n1) * pow(BigUint::from(2u32), BigUint::from(128u32)) + BigUint::from(n2);
     big_uint_to_u256(&ret)
+}
+
+pub fn sha256_to_u256(str: &[u8]) -> U256 {
+    /// tow rounds of sha256
+    let e = Sha256::digest(&Sha256::digest(str));
+    /// U256 parse by big endian
+    let e = e[0..32].iter().rev().map(|i| *i).collect::<Vec<u8>>();
+
+    U256::from_little_endian(&e[0..32])
 }

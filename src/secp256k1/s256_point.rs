@@ -139,7 +139,7 @@ impl S256Point {
 
     pub fn verify(self, z: U256, sig: Signature) -> bool {
         let n = Secp256K1EllipticCurve::n();
-        let s_inv = u256_modpow(sig.s, n - u256_parse_str(b"2", 10), n);
+        let s_inv = u256_modpow(sig.s, n - U256::from(2u32), n);
 
         let u = u256_modmul(z, s_inv, n);
         let v = u256_modmul(sig.r, s_inv, n);
@@ -211,7 +211,13 @@ where
 }
 
 mod test {
-    use crate::secp256k1::ec::utils::{pow, u256_modmul, u256_modpow, u256_mul, u256_parse_str};
+    use super::super::ec::utils::U256;
+    use super::super::ec::utils::{
+        pow, sha256_to_u256, u256_modmul, u256_modpow, u256_mul, u256_parse_str,
+    };
+    use crate::secp256k1::ec::utils::{
+        big_uint_to_u256, u256_to_big_uint, u256_to_u512, u512_to_big_uint, u512_to_u256,
+    };
     use crate::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
     use crate::secp256k1::signature::Signature;
 
@@ -249,5 +255,50 @@ mod test {
         );
         let point = S256Point::new(px.into(), py.into()).unwrap();
         assert!(point.verify(z, sig))
+    }
+
+    #[test]
+    fn test_signature_and_verify() {
+        let e = sha256_to_u256(b"my secret");
+        let z = sha256_to_u256(b"my message");
+        let k = U256::from(1234567890u32);
+
+        let r: U256 = (S256Point::gen_point() * k).coordinate().unwrap().0;
+
+        let n = Secp256K1EllipticCurve::n();
+        let k_inv = u256_modpow(k, n - U256::from(2), n);
+
+        // U256 mul will overflow
+        //                let s = u256_modmul(z + r * e, k_inv, n);
+        let s = (u256_to_big_uint(z) + u256_to_big_uint(r) * u256_to_big_uint(e))
+            * u256_to_big_uint(k_inv);
+        let s = s % u256_to_big_uint(n);
+        let s = big_uint_to_u256(&s);
+
+        let point = S256Point::gen_point() * e;
+        assert_eq!(
+            "0x28d003eab2e428d11983f3e97c3fa0addf3b42740df0d211795ffb3be2f6c52",
+            "0x".to_string() + &format!("{:x}", point.coordinate().unwrap().0)
+        );
+        assert_eq!(
+            "0xae987b9ec6ea159c78cb2a937ed89096fb218d9e7594f02b547526d8cd309e2",
+            "0x".to_string() + &format!("{:x}", point.coordinate().unwrap().1)
+        );
+
+        assert_eq!(
+            "0x231c6f3d980a6b0fb7152f85cee7eb52bf92433d9919b9c5218cb08e79cce78",
+            "0x".to_string() + &format!("{:x}", z)
+        );
+        assert_eq!(
+            "0x2b698a0f0a4041b77e63488ad48c23e8e8838dd1fb7520408b121697b782ef22",
+            "0x".to_string() + &format!("{:x}", r)
+        );
+
+        assert_eq!(
+            "0xbb14e602ef9e3f872e25fad328466b34e6734b7a0fcd58b1eb635447ffae8cb9",
+            "0x".to_string() + &format!("{:x}", s)
+        );
+
+        assert!(point.verify(z, Signature::new(r, s)))
     }
 }
