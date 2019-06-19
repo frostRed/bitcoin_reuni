@@ -12,6 +12,10 @@ construct_uint! {
     pub struct U512(8);
 }
 
+pub fn u256_is_even(v: U256) -> bool {
+    v % U256::from(2u8) == U256::from(0u8)
+}
+
 pub fn u256_to_big_uint(v: U256) -> BigUint {
     let mut u256_bytes = [0u8; 32];
     v.to_little_endian(&mut u256_bytes);

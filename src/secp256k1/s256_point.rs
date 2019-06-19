@@ -4,8 +4,9 @@ use super::ec::point::PointError;
 
 use super::ec::utils::{big_uint_to_u256, u256_parse_str, U256};
 use super::signature::Signature;
-use crate::secp256k1::ec::utils::{u256_modmul, u256_modpow};
+use crate::secp256k1::ec::utils::{u256_is_even, u256_modmul, u256_modpow};
 use num_bigint::BigUint;
+use num_traits::{one, zero};
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -137,7 +138,7 @@ impl S256Point {
         }
     }
 
-    pub fn verify(self, z: U256, sig: Signature) -> bool {
+    pub fn verify(&self, z: U256, sig: Signature) -> bool {
         let n = Secp256K1EllipticCurve::n();
         let s_inv = u256_modpow(sig.s, n - U256::from(2u32), n);
 
@@ -145,8 +146,85 @@ impl S256Point {
         let v = u256_modmul(sig.r, s_inv, n);
 
         let g = S256Point::gen_point();
-        let t = g * u + self * v;
+        let t = g * u + *self * v;
         sig.r == t.coordinate().unwrap().0
+    }
+
+    pub fn sec(&self) -> [u8; 65] {
+        let mut buf: Vec<u8> = Vec::with_capacity(65);
+        buf.push(b'\x04');
+
+        let (x, y) = self.coordinate().unwrap();
+        let mut bytes = [0u8; 32];
+
+        x.to_big_endian(&mut bytes);
+        for i in &bytes {
+            buf.push(*i);
+        }
+
+        y.to_big_endian(&mut bytes);
+        for i in &bytes {
+            buf.push(*i);
+        }
+
+        let mut bytes = [0u8; 65];
+        bytes.copy_from_slice(&buf);
+        bytes
+    }
+
+    pub fn compressed_sec(&self) -> [u8; 33] {
+        let mut buf: Vec<u8> = Vec::with_capacity(33);
+
+        let (x, y) = self.coordinate().unwrap();
+
+        if u256_is_even(y) {
+            buf.push(b'\x02');
+        } else {
+            buf.push(b'\x03');
+        }
+
+        let mut bytes = [0u8; 32];
+        x.to_big_endian(&mut bytes);
+        for i in &bytes {
+            buf.push(*i);
+        }
+
+        let mut bytes = [0u8; 33];
+        bytes.copy_from_slice(&buf);
+        bytes
+    }
+
+    pub fn parse_bytes(sec_bin: &[u8]) -> Self {
+        assert!(sec_bin.len() >= 33);
+        if sec_bin[0] == 4 {
+            let x = U256::from_big_endian(&sec_bin[1..33]);
+            let y = U256::from_big_endian(&sec_bin[33..65]);
+            let x = S256Field::new(x);
+            let y = S256Field::new(y);
+            return S256Point::new(x, y)
+                .expect("can not parse uncompressed sec format bytes to S256Point");
+        }
+
+        let is_even = if sec_bin[0] == 2 { true } else { false };
+        let x = S256Field::new(U256::from_big_endian(&sec_bin[1..33]));
+        // y^2 = x^3 + 7
+        let alpha = x.pow(3) + Secp256K1EllipticCurve::ec_b();
+        let beta = alpha.sqrt();
+
+        let prime = S256Field::prime();
+        let (even_beta, odd_beta) = if u256_is_even(beta.num) {
+            (beta, S256Field::new(prime - beta.num))
+        } else {
+            (S256Field::new(prime - beta.num), beta)
+        };
+
+        if is_even {
+            S256Point::new(x, even_beta)
+                .expect("can not parse compressed sec format bytes to S256Point")
+        } else {
+            S256Point::new(x, odd_beta)
+                .expect("can not parse compressed sec format bytes to S256Point")
+        }
     }
 }
 
@@ -300,5 +378,29 @@ mod test {
         );
 
         assert!(point.verify(z, Signature::new(r, s)))
+    }
+
+    #[test]
+    fn test_parse_uncompressed_sec() {
+        let point = S256Point::gen_point();
+        let uncompressed_sec = point.sec();
+
+        for i in uncompressed_sec.iter() {
+            println!("{}", *i);
+        }
+        let parsed_point = S256Point::parse_bytes(&uncompressed_sec);
+        assert_eq!(point, parsed_point);
+    }
+
+    #[test]
+    fn test_parse_compressed_sec() {
+        let point = S256Point::gen_point();
+        let compressed_sec = point.compressed_sec();
+
+        for i in compressed_sec.iter() {
+            println!("{}", *i);
+        }
+        let parsed_point = S256Point::parse_bytes(&compressed_sec);
+        assert_eq!(point, parsed_point);
     }
 }

@@ -1,5 +1,5 @@
 use num_bigint::{BigInt, BigUint, Sign};
-use num_traits::zero;
+use num_traits::{one, zero};
 use std::fmt::{self, Display};
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -46,6 +46,16 @@ impl S256Field {
             - U512::from(2u32).pow(U512::from(32u32))
             - U512::from(977u32);
         u512_to_u256(p)
+    }
+
+    pub fn sqrt(&self) -> Self {
+        let prime = u256_to_big_uint(self.prime);
+        let power = (prime.clone() + BigUint::from(1u8)) / BigUint::from(4u8);
+        let new_num = u256_to_big_uint(self.num).modpow(&power, &prime);
+        S256Field {
+            num: big_uint_to_u256(&new_num),
+            prime: self.prime,
+        }
     }
 }
 

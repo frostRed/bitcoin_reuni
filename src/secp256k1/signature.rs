@@ -16,4 +16,8 @@ impl Signature {
     pub fn new(r: U256, s: U256) -> Self {
         Signature { r, s }
     }
+
+    pub fn der(&self) -> Vec<u8> {
+        unimplemented!()
+    }
 }
