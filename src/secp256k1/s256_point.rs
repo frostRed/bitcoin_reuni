@@ -194,19 +194,19 @@ impl S256Point {
         bytes
     }
 
-    pub fn parse_bytes(sec_bin: &[u8]) -> Self {
-        assert!(sec_bin.len() >= 33);
-        if sec_bin[0] == 4 {
-            let x = U256::from_big_endian(&sec_bin[1..33]);
-            let y = U256::from_big_endian(&sec_bin[33..65]);
+    pub fn parse_sec(sec_bytes: &[u8]) -> Self {
+        assert!(sec_bytes.len() >= 33);
+        if sec_bytes[0] == 4 {
+            let x = U256::from_big_endian(&sec_bytes[1..33]);
+            let y = U256::from_big_endian(&sec_bytes[33..65]);
             let x = S256Field::new(x);
             let y = S256Field::new(y);
             return S256Point::new(x, y)
                 .expect("can not parse uncompressed sec format bytes to S256Point");
         }
 
-        let is_even = if sec_bin[0] == 2 { true } else { false };
-        let x = S256Field::new(U256::from_big_endian(&sec_bin[1..33]));
+        let is_even = if sec_bytes[0] == 2 { true } else { false };
+        let x = S256Field::new(U256::from_big_endian(&sec_bytes[1..33]));
         // y^2 = x^3 + 7
         let alpha = x.pow(3) + Secp256K1EllipticCurve::ec_b();
         let beta = alpha.sqrt();
@@ -388,7 +388,7 @@ mod test {
         for i in uncompressed_sec.iter() {
             println!("{}", *i);
         }
-        let parsed_point = S256Point::parse_bytes(&uncompressed_sec);
+        let parsed_point = S256Point::parse_sec(&uncompressed_sec);
         assert_eq!(point, parsed_point);
     }
 
@@ -400,7 +400,7 @@ mod test {
         for i in compressed_sec.iter() {
             println!("{}", *i);
         }
-        let parsed_point = S256Point::parse_bytes(&compressed_sec);
+        let parsed_point = S256Point::parse_sec(&compressed_sec);
         assert_eq!(point, parsed_point);
     }
 }
