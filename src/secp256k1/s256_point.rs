@@ -4,7 +4,9 @@ use super::ec::point::PointError;
 
 use super::ec::utils::{big_uint_to_u256, u256_parse_str, U256};
 use super::signature::Signature;
-use crate::secp256k1::ec::utils::{u256_is_even, u256_modmul, u256_modpow};
+use crate::secp256k1::ec::utils::{
+    encode_base58_checksum, hash160, u256_is_even, u256_modmul, u256_modpow,
+};
 use num_bigint::BigUint;
 use num_traits::{one, zero};
 use std::fmt;
@@ -225,6 +227,25 @@ impl S256Point {
             S256Point::new(x, odd_beta)
                 .expect("can not parse compressed sec format bytes to S256Point")
         }
+    }
+
+    pub fn hash160(&self, compressed: bool) -> Vec<u8> {
+        if compressed {
+            hash160(&self.compressed_sec())
+        } else {
+            hash160(&self.sec())
+        }
+    }
+
+    pub fn address(&self, compressed: bool, testnet: bool) -> String {
+        let h160 = self.hash160(compressed);
+        let prefix = if testnet {
+            vec![b'\x6f']
+        } else {
+            vec![b'\x00']
+        };
+
+        encode_base58_checksum(&[&prefix[..], &h160[..]].concat())
     }
 }
 

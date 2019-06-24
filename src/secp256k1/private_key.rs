@@ -2,7 +2,8 @@ use super::ec::utils::U256;
 use super::s256_point::{S256Point, Secp256K1EllipticCurve};
 use super::signature::Signature;
 use crate::secp256k1::ec::utils::{
-    big_uint_to_u256, u256_modmul, u256_modpow, u256_random, u256_to_big_uint,
+    big_uint_to_u256, encode_base58_checksum, u256_modmul, u256_modpow, u256_random,
+    u256_to_big_uint,
 };
 use rand::Rng;
 
@@ -42,5 +43,21 @@ impl PrivateKey {
         }
 
         Signature::new(r, s)
+    }
+
+    pub fn wif(&self, compressed: bool, testnet: bool) -> String {
+        let mut secret_bytes = [0u8; 32];
+        self.secret.to_big_endian(&mut secret_bytes);
+
+        let prefix = if testnet {
+            vec![b'\xef']
+        } else {
+            vec![b'\x80']
+        };
+
+        let suffix = if compressed { vec![b'\x01'] } else { vec![] };
+
+        let all_bytes = [&prefix[..], &secret_bytes[..], &suffix[..]].concat();
+        encode_base58_checksum(&all_bytes)
     }
 }
