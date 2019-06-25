@@ -3,7 +3,7 @@ use num_traits::zero;
 use std::fmt::{self, Display};
 use std::ops::{Add, Div, Mul, Sub};
 
-use super::utils::{big_uint_to_u256, u256_to_big_uint, U256};
+use super::utils::U256;
 
 /// Finite field element
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -47,8 +47,8 @@ impl FieldElement {
     }
 
     pub fn pow(self, exp: i32) -> Self {
-        let num = u256_to_big_uint(self.num);
-        let prime = u256_to_big_uint(self.prime);
+        let num: BigUint = self.num.into();
+        let prime: BigUint = self.prime.into();
 
         let mut exp = BigInt::from(exp);
         while exp < zero() {
@@ -59,7 +59,7 @@ impl FieldElement {
         e = e % (prime.clone() - BigUint::from(1u32));
         let num = num.modpow(&e, &prime);
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 
     pub fn prime(&self) -> U256 {
@@ -75,12 +75,12 @@ impl Add<Self> for FieldElement {
             panic!("{}", FieldElementError::NotSamePrime);
         }
 
-        let num = u256_to_big_uint(self.num);
-        let rhs_num = u256_to_big_uint(rhs.num);
-        let prime = u256_to_big_uint(self.prime);
+        let num: BigUint = self.num.into();
+        let rhs_num: BigUint = rhs.num.into();
+        let prime: BigUint = self.prime.into();
         let num = (num + rhs_num) % prime;
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 }
 
@@ -91,12 +91,12 @@ where
     type Output = FieldElement;
 
     fn add(self, rhs: T) -> Self::Output {
-        let num = u256_to_big_uint(self.num);
-        let rhs_num = u256_to_big_uint(rhs.into());
-        let prime = u256_to_big_uint(self.prime);
+        let num: BigUint = self.num.into();
+        let rhs_num: BigUint = rhs.into().into();
+        let prime: BigUint = self.prime.into();
         let num = (num + rhs_num) % prime;
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 }
 
@@ -104,12 +104,12 @@ impl Add<FieldElement> for U256 {
     type Output = FieldElement;
 
     fn add(self, rhs: FieldElement) -> Self::Output {
-        let num = u256_to_big_uint(self);
-        let rhs_num = u256_to_big_uint(rhs.num);
-        let prime = u256_to_big_uint(rhs.prime);
+        let num: BigUint = self.into();
+        let rhs_num: BigUint = rhs.num.into();
+        let prime: BigUint = rhs.prime.into();
         let num = (num + rhs_num) % prime;
 
-        FieldElement::new(big_uint_to_u256(&num), rhs.prime)
+        FieldElement::new(num.into(), rhs.prime)
     }
 }
 
@@ -121,9 +121,9 @@ impl Sub<Self> for FieldElement {
             panic!("{}", FieldElementError::NotSamePrime);
         }
 
-        let self_num = u256_to_big_uint(self.num);
-        let self_prime = u256_to_big_uint(self.prime);
-        let rhs_num = u256_to_big_uint(rhs.num);
+        let self_num: BigUint = self.num.into();
+        let self_prime: BigUint = self.prime.into();
+        let rhs_num: BigUint = rhs.num.into();
 
         let mut num: BigInt = zero();
         if self.num >= rhs.num {
@@ -135,7 +135,9 @@ impl Sub<Self> for FieldElement {
             num = num + BigInt::from_biguint(Sign::Plus, self_prime.clone());
         }
         FieldElement::new(
-            big_uint_to_u256(&num.to_biguint().expect("BigInt convert to BigUint failed")),
+            num.to_biguint()
+                .expect("BigInt convert to BigUint failed")
+                .into(),
             self.prime,
         )
     }
@@ -148,9 +150,9 @@ where
     type Output = Self;
 
     fn sub(self, rhs: T) -> Self::Output {
-        let self_num = u256_to_big_uint(self.num);
-        let rhs_num = u256_to_big_uint(rhs.into());
-        let self_prime = u256_to_big_uint(self.prime);
+        let self_num: BigUint = self.num.into();
+        let rhs_num: BigUint = rhs.into().into();
+        let self_prime: BigUint = self.prime.into();
 
         let mut num: BigInt = zero();
         if self_num >= rhs_num {
@@ -163,7 +165,9 @@ where
         }
 
         FieldElement::new(
-            big_uint_to_u256(&num.to_biguint().expect("BigInt convert to BigUint failed")),
+            num.to_biguint()
+                .expect("BigInt convert to BigUint failed")
+                .into(),
             self.prime,
         )
     }
@@ -177,12 +181,12 @@ impl Mul<Self> for FieldElement {
             panic!("{}", FieldElementError::NotSamePrime);
         }
 
-        let self_num = u256_to_big_uint(self.num);
-        let rhs_num = u256_to_big_uint(rhs.num);
-        let self_prime = u256_to_big_uint(self.prime);
+        let self_num: BigUint = self.num.into();
+        let rhs_num: BigUint = rhs.num.into();
+        let self_prime: BigUint = self.prime.into();
         let num = (self_num * rhs_num) % self_prime;
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 }
 
@@ -192,24 +196,24 @@ where
 {
     type Output = FieldElement;
     fn mul(self, rhs: T) -> Self::Output {
-        let self_num = u256_to_big_uint(self.num);
-        let rhs_num = u256_to_big_uint(rhs.into());
-        let self_prime = u256_to_big_uint(self.prime);
+        let self_num: BigUint = self.num.into();
+        let rhs_num: BigUint = rhs.into().into();
+        let self_prime: BigUint = self.prime.into();
         let num = (self_num * rhs_num) % self_prime;
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 }
 
 impl Mul<FieldElement> for U256 {
     type Output = FieldElement;
     fn mul(self, rhs: FieldElement) -> Self::Output {
-        let self_num = u256_to_big_uint(self);
-        let rhs_num = u256_to_big_uint(rhs.num);
-        let prime = u256_to_big_uint(rhs.prime);
-        let num = (self_num * rhs_num) % prime;
+        let self_num: BigUint = self.into();
+        let rhs_num: BigUint = rhs.num.into();
+        let prime: BigUint = rhs.prime.into();
+        let num = (self_num * rhs_num) % prime.clone();
 
-        FieldElement::new(big_uint_to_u256(&num), rhs.prime)
+        FieldElement::new(num.into(), prime)
     }
 }
 
@@ -217,12 +221,12 @@ impl Div<Self> for FieldElement {
     type Output = Self;
 
     fn div(self, rhs: Self) -> Self::Output {
-        let t = u256_to_big_uint(self.prime - 2);
-        let num = (u256_to_big_uint(self.num)
-            * u256_to_big_uint(rhs.num).modpow(&t, &u256_to_big_uint(self.prime)))
-            % u256_to_big_uint(self.prime);
-
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        let t: BigUint = (self.prime - 2).into();
+        let prime: BigUint = self.prime.into();
+        let num: BigUint = (Into::<BigUint>::into(self.num)
+            * Into::<BigUint>::into(rhs.num).modpow(&t, &prime))
+            % prime;
+        FieldElement::new(num.into(), self.prime)
     }
 }
 
@@ -230,12 +234,13 @@ impl Div<U256> for FieldElement {
     type Output = Self;
 
     fn div(self, rhs: U256) -> Self::Output {
-        let t = u256_to_big_uint(self.prime - 2);
-        let num = (u256_to_big_uint(self.num)
-            * u256_to_big_uint(rhs).modpow(&t, &u256_to_big_uint(self.prime)))
-            % u256_to_big_uint(self.prime);
+        let t: BigUint = (self.prime - 2).into();
+        let prime: BigUint = self.prime.into();
+        let num: BigUint = (Into::<BigUint>::into(self.num)
+            * Into::<BigUint>::into(rhs).modpow(&t, &prime))
+            % prime;
 
-        FieldElement::new(big_uint_to_u256(&num), self.prime)
+        FieldElement::new(num.into(), self.prime)
     }
 }
 

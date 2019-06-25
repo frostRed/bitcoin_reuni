@@ -2,11 +2,9 @@ use super::s256_field::S256Field;
 
 use super::ec::point::PointError;
 
-use super::ec::utils::{big_uint_to_u256, u256_parse_str, U256};
+use super::ec::utils::U256;
 use super::signature::Signature;
-use crate::secp256k1::ec::utils::{
-    encode_base58_checksum, hash160, u256_is_even, u256_modmul, u256_modpow,
-};
+use super::utils::{encode_base58_checksum, hash160};
 use num_bigint::BigUint;
 use num_traits::{one, zero};
 use std::fmt;
@@ -55,10 +53,7 @@ impl Secp256K1EllipticCurve {
 
     /// Secp256K1 elliptic curve group order, nG=0
     pub fn n() -> U256 {
-        u256_parse_str(
-            b"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141",
-            16,
-        )
+        U256::from_hex(b"fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141")
     }
 }
 
@@ -119,15 +114,11 @@ impl S256Point {
     }
 
     pub fn gen_point() -> Self {
-        let gx = u256_parse_str(
-            b"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
-            16,
-        );
+        let gx =
+            U256::from_hex(b"79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798");
 
-        let gy = u256_parse_str(
-            b"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8",
-            16,
-        );
+        let gy =
+            U256::from_hex(b"483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8");
         let x = S256Field::new(gx);
         let y = S256Field::new(gy);
         S256Point::new(x, y).unwrap()
@@ -142,10 +133,10 @@ impl S256Point {
 
     pub fn verify(&self, z: U256, sig: Signature) -> bool {
         let n = Secp256K1EllipticCurve::n();
-        let s_inv = u256_modpow(sig.s, n - U256::from(2u32), n);
+        let s_inv = sig.s.modpow(n - U256::from(2u32), n);
 
-        let u = u256_modmul(z, s_inv, n);
-        let v = u256_modmul(sig.r, s_inv, n);
+        let u = z.modmul(s_inv, n);
+        let v = sig.r.modmul(s_inv, n);
 
         let g = S256Point::gen_point();
         let t = g * u + *self * v;
@@ -179,7 +170,7 @@ impl S256Point {
 
         let (x, y) = self.coordinate().unwrap();
 
-        if u256_is_even(y) {
+        if y.is_even() {
             buf.push(b'\x02');
         } else {
             buf.push(b'\x03');
@@ -214,7 +205,7 @@ impl S256Point {
         let beta = alpha.sqrt();
 
         let prime = S256Field::prime();
-        let (even_beta, odd_beta) = if u256_is_even(beta.num) {
+        let (even_beta, odd_beta) = if beta.num.is_even() {
             (beta, S256Field::new(prime - beta.num))
         } else {
             (S256Field::new(prime - beta.num), beta)
@@ -311,14 +302,10 @@ where
 
 mod test {
     use super::super::ec::utils::U256;
-    use super::super::ec::utils::{
-        pow, sha256_to_u256, u256_modmul, u256_modpow, u256_mul, u256_parse_str,
-    };
-    use crate::secp256k1::ec::utils::{
-        big_uint_to_u256, u256_to_big_uint, u256_to_u512, u512_to_big_uint, u512_to_u256,
-    };
+    use super::super::ec::utils::{pow, sha256_to_u256};
     use crate::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
     use crate::secp256k1::signature::Signature;
+    use num_bigint::BigUint;
 
     #[test]
     fn test_s256_point() {
@@ -330,28 +317,15 @@ mod test {
 
     #[test]
     fn test_verify_sig() {
-        let z = u256_parse_str(
-            b"bc62d4b80d9e36da29c16c5d4d9f11731f36052c72401a76c23c0fb5a9b74423",
-            16,
-        );
-        let r = u256_parse_str(
-            b"37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6",
-            16,
-        );
-        let s = u256_parse_str(
-            b"8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec",
-            16,
-        );
+        let z = U256::from_hex(b"bc62d4b80d9e36da29c16c5d4d9f11731f36052c72401a76c23c0fb5a9b74423");
+        let r = U256::from_hex(b"37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6");
+        let s = U256::from_hex(b"8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec");
         let sig = Signature::new(r, s);
 
-        let px = u256_parse_str(
-            b"04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574",
-            16,
-        );
-        let py = u256_parse_str(
-            b"82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4",
-            16,
-        );
+        let px =
+            U256::from_hex(b"04519fac3d910ca7e7138f7013706f619fa8f033e6ec6e09370ea38cee6a7574");
+        let py =
+            U256::from_hex(b"82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4");
         let point = S256Point::new(px.into(), py.into()).unwrap();
         assert!(point.verify(z, sig))
     }
@@ -365,14 +339,15 @@ mod test {
         let r: U256 = (S256Point::gen_point() * k).coordinate().unwrap().0;
 
         let n = Secp256K1EllipticCurve::n();
-        let k_inv = u256_modpow(k, n - U256::from(2), n);
+        let k_inv = k.modpow(n - U256::from(2), n);
 
         // U256 mul will overflow
-        //                let s = u256_modmul(z + r * e, k_inv, n);
-        let s = (u256_to_big_uint(z) + u256_to_big_uint(r) * u256_to_big_uint(e))
-            * u256_to_big_uint(k_inv);
-        let s = s % u256_to_big_uint(n);
-        let s = big_uint_to_u256(&s);
+        // let s = u256_modmul(z + r * e, k_inv, n);
+        let s: BigUint = (Into::<BigUint>::into(z)
+            + Into::<BigUint>::into(r) * Into::<BigUint>::into(e))
+            * Into::<BigUint>::into(k_inv);
+        let s = s % Into::<BigUint>::into(n);
+        let s: U256 = s.into();
 
         let point = S256Point::gen_point() * e;
         assert_eq!(

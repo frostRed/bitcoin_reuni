@@ -86,19 +86,13 @@ impl Signature {
 }
 
 mod test {
-    use crate::secp256k1::ec::utils::u256_parse_str;
+    use crate::secp256k1::ec::utils::U256;
     use crate::secp256k1::signature::Signature;
 
     #[test]
     fn test_sig_der_and_parse() {
-        let r = u256_parse_str(
-            b"37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6",
-            16,
-        );
-        let s = u256_parse_str(
-            b"8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec",
-            16,
-        );
+        let r = U256::from_hex(b"37206a0610995c58074999cb9767b87af4c4978db68c06e8e6e81d282047a7c6");
+        let s = U256::from_hex(b"8ca63759c1157ebeaec0d03cecca119fc9a75bf8e6d0fa65c841c8e2738cdaec");
         let sig = Signature::new(r, s);
         let der = sig.der();
 
