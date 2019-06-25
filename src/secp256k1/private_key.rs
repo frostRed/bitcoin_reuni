@@ -53,10 +53,59 @@ impl PrivateKey {
         } else {
             vec![b'\x80']
         };
+        println!("{:x} ", prefix[0]);
 
         let suffix = if compressed { vec![b'\x01'] } else { vec![] };
 
         let all_bytes = [&prefix[..], &secret_bytes[..], &suffix[..]].concat();
         encode_base58_checksum(&all_bytes)
+    }
+}
+
+mod test {
+    use crate::secp256k1::ec::utils::{pow, sha256_to_u256, U256};
+    use crate::secp256k1::private_key::PrivateKey;
+    use crate::secp256k1::s256_point::S256Point;
+    use num_bigint::BigUint;
+
+    #[test]
+    fn test_wif() {
+        let point = S256Point::gen_point();
+
+        let secret: BigUint = pow(BigUint::from(2u8), BigUint::from(256u16))
+            - pow(BigUint::from(2u8), BigUint::from(199u8));
+        let secret: U256 = secret.into();
+        let p = PrivateKey::new(secret, point);
+        assert_eq!(
+            "L5oLkpV3aqBJ4BgssVAsax1iRa77G5CVYnv9adQ6Z87te7TyUdSC".to_string(),
+            p.wif(true, false)
+        );
+
+        let secret: BigUint = pow(BigUint::from(2u8), BigUint::from(256u16))
+            - pow(BigUint::from(2u8), BigUint::from(201u8));
+        let secret: U256 = secret.into();
+        let p = PrivateKey::new(secret, point);
+        assert_eq!(
+            "93XfLeifX7Jx7n7ELGMAf1SUR6f9kgQs8Xke8WStMwUtrDucMzn".to_string(),
+            p.wif(false, true)
+        );
+
+        let p = PrivateKey::new(
+            U256::from_hex(b"0dba685b4511dbd3d368e5c4358a1277de9486447af7b3604a69b8d9d8b7889d"),
+            point,
+        );
+        assert_eq!(
+            "5HvLFPDVgFZRK9cd4C5jcWki5Skz6fmKqi1GQJf5ZoMofid2Dty".to_string(),
+            p.wif(false, false)
+        );
+
+        let p = PrivateKey::new(
+            U256::from_hex(b"1cca23de92fd1862fb5b76e5f4f50eb082165e5191e116c18ed1a6b24be6a53f"),
+            point,
+        );
+        assert_eq!(
+            "cNYfWuhDpbNM1JWc3c6JTrtrFVxU4AGhUKgw5f93NP2QaBqmxKkg".to_string(),
+            p.wif(true, true)
+        );
     }
 }
