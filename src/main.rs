@@ -1,4 +1,5 @@
 mod secp256k1;
+mod transaction;
 #[macro_use]
 extern crate uint;
 
