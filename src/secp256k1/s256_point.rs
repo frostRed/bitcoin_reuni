@@ -381,9 +381,6 @@ mod test {
         let point = S256Point::gen_point();
         let uncompressed_sec = point.sec();
 
-        for i in uncompressed_sec.iter() {
-            println!("{}", *i);
-        }
         let parsed_point = S256Point::parse_sec(&uncompressed_sec);
         assert_eq!(point, parsed_point);
     }
@@ -393,9 +390,6 @@ mod test {
         let point = S256Point::gen_point();
         let compressed_sec = point.compressed_sec();
 
-        for i in compressed_sec.iter() {
-            println!("{}", *i);
-        }
         let parsed_point = S256Point::parse_sec(&compressed_sec);
         assert_eq!(point, parsed_point);
     }

@@ -1,3 +1,4 @@
+use hmac::{Hmac, Mac};
 use num_bigint::BigUint;
 use num_integer::{div_rem, Integer};
 use num_traits::identities::One;
@@ -50,6 +51,13 @@ pub fn encode_base58_checksum(bytes: &[u8]) -> String {
     let mut bytes = bytes.to_vec();
     bytes.extend_from_slice(&hash[0..4]);
     encode_base58(&bytes)
+}
+
+pub fn hmac_sha256_digest(key: &[u8], data: &[u8]) -> Vec<u8> {
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_varkey(key).expect("HMAC new with key failed");
+    mac.input(data);
+    mac.result().code().to_vec()
 }
 
 mod test {
