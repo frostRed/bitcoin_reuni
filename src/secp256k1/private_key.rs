@@ -7,7 +7,7 @@ use rand::Rng;
 
 pub struct PrivateKey {
     secret: U256,
-    point: S256Point,
+    pub point: S256Point,
 }
 
 impl PrivateKey {
@@ -16,6 +16,10 @@ impl PrivateKey {
             secret,
             point: S256Point::gen_point() * secret,
         }
+    }
+
+    pub fn hex(&self) -> String {
+        self.secret.hex()
     }
 
     pub fn sig(self, z: U256) -> Signature {
@@ -106,6 +110,24 @@ mod test {
         assert_eq!(
             "cNYfWuhDpbNM1JWc3c6JTrtrFVxU4AGhUKgw5f93NP2QaBqmxKkg".to_string(),
             p.wif(true, true)
+        );
+    }
+
+    #[test]
+    fn test_address() {
+        let point = S256Point::gen_point();
+
+        let secret: BigUint = pow(BigUint::from(888u16), BigUint::from(3u8));
+        let secret: U256 = secret.into();
+        let p = PrivateKey::new(secret, point);
+
+        assert_eq!(
+            "148dY81A9BmdpMhvYEVznrM45kWN32vSCN".to_string(),
+            p.point.address(true, false)
+        );
+        assert_eq!(
+            "mieaqB68xDCtbUBYFoUNcmZNwk74xcBfTP".to_string(),
+            p.point.address(true, true)
         );
     }
 }

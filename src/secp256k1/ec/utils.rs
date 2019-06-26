@@ -60,6 +60,18 @@ impl U256 {
             BigUint::from(n1) * pow(BigUint::from(2u32), BigUint::from(128u32)) + BigUint::from(n2);
         ret.into()
     }
+
+    pub fn hex(&self) -> String {
+        let string = format!("{:x}", self);
+        if string.len() < 64 {
+            std::iter::repeat("0")
+                .take(64 - string.len())
+                .collect::<String>()
+                + &string
+        } else {
+            string
+        }
+    }
 }
 
 impl From<BigUint> for U256 {
