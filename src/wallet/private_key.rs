@@ -1,12 +1,18 @@
-use super::ec::utils::U256;
-use super::s256_point::{S256Point, Secp256K1EllipticCurve};
-use super::signature::Signature;
-use super::utils::encode_base58_checksum;
-use crate::secp256k1::utils::hmac_sha256_digest;
+use super::secp256k1::ec::utils::U256;
+use super::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
+use super::secp256k1::signature::Signature;
+use super::secp256k1::utils::encode_base58_checksum;
 use bytes::{BufMut, BytesMut};
+use hmac::{Hmac, Mac};
 use num_bigint::BigUint;
-use rand::Rng;
 use sha2::Sha256;
+
+fn hmac_sha256_digest(key: &[u8], data: &[u8]) -> Vec<u8> {
+    type HmacSha256 = Hmac<Sha256>;
+    let mut mac = HmacSha256::new_varkey(key).expect("HMAC new with key failed");
+    mac.input(data);
+    mac.result().code().to_vec()
+}
 
 pub struct PrivateKey {
     secret: U256,
@@ -118,15 +124,12 @@ impl PrivateKey {
 }
 
 mod test {
-    use crate::secp256k1::ec::utils::{pow, sha256_to_u256, U256};
-    use crate::secp256k1::private_key::PrivateKey;
-    use crate::secp256k1::s256_point::S256Point;
+    use super::super::secp256k1::ec::utils::{pow, U256};
+    use super::PrivateKey;
     use num_bigint::BigUint;
 
     #[test]
     fn test_wif() {
-        let point = S256Point::gen_point();
-
         let secret: BigUint = pow(BigUint::from(2u8), BigUint::from(256u16))
             - pow(BigUint::from(2u8), BigUint::from(199u8));
         let secret: U256 = secret.into();
@@ -164,8 +167,6 @@ mod test {
 
     #[test]
     fn test_address() {
-        let point = S256Point::gen_point();
-
         let secret: BigUint = pow(BigUint::from(888u16), BigUint::from(3u8));
         let secret: U256 = secret.into();
         let p = PrivateKey::new(secret);

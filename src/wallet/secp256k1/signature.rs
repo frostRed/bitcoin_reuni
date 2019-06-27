@@ -86,8 +86,8 @@ impl Signature {
 }
 
 mod test {
-    use crate::secp256k1::ec::utils::U256;
-    use crate::secp256k1::signature::Signature;
+    use super::super::ec::utils::U256;
+    use super::Signature;
 
     #[test]
     fn test_sig_der_and_parse() {

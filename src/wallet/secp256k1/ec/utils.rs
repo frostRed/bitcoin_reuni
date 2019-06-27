@@ -1,7 +1,6 @@
 use num_bigint::BigUint;
-use num_integer::{div_rem, Integer};
+use num_integer::Integer;
 use num_traits::identities::One;
-use num_traits::ToPrimitive;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 
@@ -133,9 +132,9 @@ pub fn pow(value: BigUint, exp: BigUint) -> BigUint {
 
 ////////////////////////////////////
 pub fn sha256_to_u256(str: &[u8]) -> U256 {
-    /// two rounds of sha256
+    // two rounds of sha256
     let e = Sha256::digest(&Sha256::digest(str));
-    /// U256 parse by big endian
+    // U256 parse by big endian
     let e = e[0..32].iter().rev().map(|i| *i).collect::<Vec<u8>>();
 
     U256::from_little_endian(&e[0..32])

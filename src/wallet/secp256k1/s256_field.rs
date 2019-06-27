@@ -1,5 +1,5 @@
 use num_bigint::{BigInt, BigUint, Sign};
-use num_traits::{one, zero};
+use num_traits::zero;
 use std::fmt::{self, Display};
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -126,12 +126,11 @@ impl Sub<Self> for S256Field {
         let self_prime = Into::<BigUint>::into(self.prime);
         let rhs_num = Into::<BigUint>::into(rhs.num);
 
-        let mut num: BigInt = zero();
-        if self.num >= rhs.num {
-            num = BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone());
+        let mut num = if self.num >= rhs.num {
+            BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone())
         } else {
-            num = BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone());
-        }
+            BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone())
+        };
         while num < zero() {
             num = num + BigInt::from_biguint(Sign::Plus, self_prime.clone());
         }
@@ -150,12 +149,11 @@ where
         let rhs_num = Into::<BigUint>::into(rhs.into());
         let self_prime = Into::<BigUint>::into(self.prime);
 
-        let mut num: BigInt = zero();
-        if self_num >= rhs_num {
-            num = BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone());
+        let mut num = if self_num >= rhs_num {
+            BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone())
         } else {
-            num = BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone());
-        }
+            BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone())
+        };
         while num < zero() {
             num = num + BigInt::from_biguint(Sign::Plus, self_prime.clone());
         }

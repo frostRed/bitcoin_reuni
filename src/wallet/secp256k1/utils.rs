@@ -1,21 +1,8 @@
-use hmac::{Hmac, Mac};
 use num_bigint::BigUint;
-use num_integer::{div_rem, Integer};
-use num_traits::identities::One;
+use num_integer::div_rem;
 use num_traits::ToPrimitive;
 use ripemd160::Ripemd160;
 use sha2::{Digest, Sha256};
-
-pub fn hash256(bytes: &[u8]) -> Vec<u8> {
-    /// tow rounds of sha256
-    let hash = Sha256::digest(&Sha256::digest(bytes));
-    hash[0..32].iter().map(|i| *i).collect()
-}
-
-pub fn hash160(bytes: &[u8]) -> Vec<u8> {
-    let hash = Ripemd160::digest(&Sha256::digest(bytes));
-    hash[0..20].iter().map(|i| *i).collect()
-}
 
 pub fn encode_base58(bytes: &[u8]) -> String {
     let base58_alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -53,11 +40,15 @@ pub fn encode_base58_checksum(bytes: &[u8]) -> String {
     encode_base58(&bytes)
 }
 
-pub fn hmac_sha256_digest(key: &[u8], data: &[u8]) -> Vec<u8> {
-    type HmacSha256 = Hmac<Sha256>;
-    let mut mac = HmacSha256::new_varkey(key).expect("HMAC new with key failed");
-    mac.input(data);
-    mac.result().code().to_vec()
+pub fn hash160(bytes: &[u8]) -> Vec<u8> {
+    let hash = Ripemd160::digest(&Sha256::digest(bytes));
+    hash[0..20].iter().map(|i| *i).collect()
+}
+
+pub fn hash256(bytes: &[u8]) -> Vec<u8> {
+    // tow rounds of sha256
+    let hash = Sha256::digest(&Sha256::digest(bytes));
+    hash[0..32].iter().map(|i| *i).collect()
 }
 
 mod test {
@@ -76,6 +67,15 @@ mod test {
     }
 
     #[test]
+    fn test_encode_base58() {
+        let v = hash256(b"1");
+        assert_eq!(
+            encode_base58(&v),
+            "BWfYz3GXAHhqpwCKmzEviyajcVR9ou1XT2HS1fDxvyuZ".to_string()
+        );
+    }
+
+    #[test]
     fn test_hash256() {
         let v = b"1";
         assert_eq!(
@@ -84,15 +84,6 @@ mod test {
                 233, 103, 21, 35, 28, 255, 196, 51, 115, 64, 203, 17, 2, 128
             ],
             hash256(v)
-        );
-    }
-
-    #[test]
-    fn test_encode_base58() {
-        let v = hash256(b"1");
-        assert_eq!(
-            encode_base58(&v),
-            "BWfYz3GXAHhqpwCKmzEviyajcVR9ou1XT2HS1fDxvyuZ".to_string()
         );
     }
 

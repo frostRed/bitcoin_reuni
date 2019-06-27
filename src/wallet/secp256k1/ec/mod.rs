@@ -1,14 +1,12 @@
-pub mod ec;
-pub mod private_key;
-mod s256_field;
-pub mod s256_point;
-pub mod signature;
-mod utils;
+pub mod field_element;
+pub mod point;
+mod point_int;
+pub mod utils;
 
 mod test {
-    use super::ec::field_element::FieldElement;
-    use super::ec::point::Point;
-    use super::ec::utils::{U256, U512};
+    use super::field_element::FieldElement;
+    use super::point::Point;
+    use super::utils::{U256, U512};
     use num_bigint::BigUint;
 
     #[test]

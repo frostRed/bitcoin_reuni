@@ -5,8 +5,6 @@ use super::ec::point::PointError;
 use super::ec::utils::U256;
 use super::signature::Signature;
 use super::utils::{encode_base58_checksum, hash160};
-use num_bigint::BigUint;
-use num_traits::{one, zero};
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -301,10 +299,10 @@ where
 }
 
 mod test {
+    use super::super::ec::utils::sha256_to_u256;
     use super::super::ec::utils::U256;
-    use super::super::ec::utils::{pow, sha256_to_u256};
-    use crate::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
-    use crate::secp256k1::signature::Signature;
+    use super::super::s256_point::{S256Point, Secp256K1EllipticCurve};
+    use super::super::signature::Signature;
     use num_bigint::BigUint;
 
     #[test]

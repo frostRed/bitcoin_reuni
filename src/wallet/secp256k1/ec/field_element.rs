@@ -125,12 +125,11 @@ impl Sub<Self> for FieldElement {
         let self_prime: BigUint = self.prime.into();
         let rhs_num: BigUint = rhs.num.into();
 
-        let mut num: BigInt = zero();
-        if self.num >= rhs.num {
-            num = BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone());
+        let mut num = if self.num >= rhs.num {
+            BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone())
         } else {
-            num = BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone());
-        }
+            BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone())
+        };
         while num < zero() {
             num = num + BigInt::from_biguint(Sign::Plus, self_prime.clone());
         }
@@ -154,12 +153,11 @@ where
         let rhs_num: BigUint = rhs.into().into();
         let self_prime: BigUint = self.prime.into();
 
-        let mut num: BigInt = zero();
-        if self_num >= rhs_num {
-            num = BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone());
+        let mut num = if self_num >= rhs_num {
+            BigInt::from_biguint(Sign::Plus, (self_num - rhs_num) % self_prime.clone())
         } else {
-            num = BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone());
-        }
+            BigInt::from_biguint(Sign::Minus, (rhs_num - self_num) % self_prime.clone())
+        };
         while num < zero() {
             num = num + BigInt::from_biguint(Sign::Plus, self_prime.clone());
         }
