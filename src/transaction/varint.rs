@@ -5,7 +5,7 @@ use nom::{
 };
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
-enum Varint {
+pub enum Varint {
     U8(u8),
     U16(u16),
     U32(u32),
