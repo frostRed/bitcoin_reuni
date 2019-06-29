@@ -3,21 +3,22 @@ use super::varint::Varint;
 use nom::bytes::streaming::take;
 use nom::number::complete::le_u32;
 use nom::IResult;
+use std::fmt::Display;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
 pub struct TxInput {
-    pre_tx_id: TxHash,
-    pre_tx_index: PreTxIndex,
-    script_sig: ScriptSig,
-    sequence: TxInputSequence,
+    pub pre_tx_id: TxHash,
+    pub pre_tx_index: PreTxIndex,
+    pub script_sig: ScriptSig,
+    pub sequence: TxInputSequence,
 }
 
 impl TxInput {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
         let (input, pre_tx_id) = TxHash::parse(&input[..])?;
-        let (data, pre_tx_index) = PreTxIndex::parse(&input[..])?;
-        let (data, script_sig) = ScriptSig::parse(&input[..])?;
-        let (data, sequence) = TxInputSequence::parse(&input[..])?;
+        let (input, pre_tx_index) = PreTxIndex::parse(&input[..])?;
+        let (input, script_sig) = ScriptSig::parse(&input[..])?;
+        let (input, sequence) = TxInputSequence::parse(&input[..])?;
         Ok((
             input,
             TxInput {
@@ -28,11 +29,42 @@ impl TxInput {
             },
         ))
     }
+    pub fn new(
+        pre_tx_id: TxHash,
+        pre_tx_index: PreTxIndex,
+        script_sig: ScriptSig,
+        sequence: TxInputSequence,
+    ) -> Self {
+        TxInput {
+            pre_tx_id,
+            pre_tx_index,
+            script_sig,
+            sequence,
+        }
+    }
+}
+
+impl Display for TxInput {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}", self.pre_tx_id, self.pre_tx_index)
+    }
 }
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
-struct TxHash([u8; 32]);
+pub struct TxHash([u8; 32]);
 impl Copy for TxHash {}
+
+impl AsRef<[u8]> for TxHash {
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl Display for TxHash {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", hex::encode(self))
+    }
+}
 
 impl TxHash {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
@@ -41,11 +73,27 @@ impl TxHash {
         buf.copy_from_slice(&tx_hash[..]);
         Ok((input, TxHash(buf)))
     }
+
+    pub fn hex(&self) -> String {
+        format!("{}", self)
+    }
 }
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
-struct PreTxIndex(u32);
+pub struct PreTxIndex(u32);
 impl Copy for PreTxIndex {}
+
+impl AsRef<u32> for PreTxIndex {
+    fn as_ref(&self) -> &u32 {
+        &self.0
+    }
+}
+
+impl Display for PreTxIndex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 impl PreTxIndex {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
@@ -75,8 +123,17 @@ impl ScriptSig {
     }
 }
 
+impl Default for ScriptSig {
+    fn default() -> Self {
+        ScriptSig {
+            len: 0,
+            content: vec![],
+        }
+    }
+}
+
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
-struct TxInputSequence(u32);
+pub struct TxInputSequence(u32);
 impl Copy for TxInputSequence {}
 
 impl TxInputSequence {
@@ -85,9 +142,26 @@ impl TxInputSequence {
         Ok((input, TxInputSequence(seq)))
     }
 }
+
+impl Default for TxInputSequence {
+    fn default() -> Self {
+        TxInputSequence(0xffffffff)
+    }
+}
+
 mod test {
-    use crate::transaction::tx_input::{PreTxIndex, ScriptSig, TxHash, TxInputSequence};
-    use crate::transaction::varint::Varint;
+    use super::{PreTxIndex, ScriptSig, TxHash, TxInput, TxInputSequence};
+
+    #[test]
+    fn test_tx_hash_display() {
+        let data = hex!("813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff02a135ef01000000001976a914bc3b654dca7e56b04dca18f2566cdaf02e8d9ada88ac99c39800000000001976a9141c4bc762dd5423e332166702cb75f40df79fea1288ac19430600");
+        let (_data, pre_tx_id) = TxHash::parse(&data[..]).unwrap();
+
+        assert_eq!(
+            format!("{}", pre_tx_id),
+            "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1".to_string()
+        );
+    }
 
     #[test]
     fn test_tx_input() {
@@ -105,9 +179,15 @@ mod test {
 
         let (data, script_sig) = ScriptSig::parse(&data[..]).unwrap();
         assert_eq!(script_sig.len, 107u64);
-        assert_eq!(hex::encode(script_sig.content), "483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a".to_string());
+        assert_eq!(hex::encode(&script_sig.content), "483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a".to_string());
 
-        let (data, seq) = TxInputSequence::parse(&data[..]).unwrap();
+        let (_data, seq) = TxInputSequence::parse(&data[..]).unwrap();
         assert_eq!(seq, TxInputSequence(0xfffffffeu32));
+
+        let tx_input = TxInput::new(pre_tx_id, pre_tx_index, script_sig, seq);
+        assert_eq!(
+            format!("{}", tx_input),
+            "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1:0".to_string()
+        );
     }
 }

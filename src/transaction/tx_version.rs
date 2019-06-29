@@ -9,6 +9,10 @@ impl TxVersion {
         let (input, version) = le_u32(input)?;
         Ok((input, TxVersion(version)))
     }
+
+    pub fn new(version: u32) -> Self {
+        TxVersion(version)
+    }
 }
 
 mod test {

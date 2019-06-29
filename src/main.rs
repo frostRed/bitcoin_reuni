@@ -1,3 +1,4 @@
+#[warn(dead_code)]
 #[macro_use]
 extern crate hex_literal;
 #[macro_use]

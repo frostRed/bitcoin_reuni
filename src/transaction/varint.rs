@@ -1,4 +1,4 @@
-use bytes::{BigEndian, BufMut, BytesMut, LittleEndian};
+use bytes::{BufMut, BytesMut};
 use nom::{
     number::complete::{le_u16, le_u32, le_u64, le_u8},
     IResult,
