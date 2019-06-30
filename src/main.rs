@@ -7,6 +7,8 @@ extern crate uint;
 mod transaction;
 mod wallet;
 
+use bytes::{BigEndian, BufMut, BytesMut};
+
 fn main() {
     println!("Hello, world!");
 }

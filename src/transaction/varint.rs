@@ -47,9 +47,7 @@ impl std::error::Error for VarintError {
 }
 
 impl Varint {
-    pub fn encode(&self) -> Result<Vec<u8>, VarintError> {
-        let int: u64 = (*self).into();
-
+    pub fn encode(int: u64) -> Result<Vec<u8>, VarintError> {
         let mut buf = BytesMut::with_capacity(10);
         if int < 0xfd_u64 {
             buf.put_u8(int as u8);
@@ -99,8 +97,7 @@ mod test {
 
     #[test]
     fn test_encode_varint() {
-        let varint = Varint::U8(1u8);
         let data = hex!("01");
-        assert_eq!(varint.encode().unwrap(), &data[..])
+        assert_eq!(Varint::encode(1u64).unwrap(), &data[..])
     }
 }

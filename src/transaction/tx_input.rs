@@ -1,5 +1,6 @@
 use super::varint::Varint;
 
+use bytes::{BufMut, BytesMut};
 use nom::bytes::streaming::take;
 use nom::number::complete::le_u32;
 use nom::IResult;
@@ -42,6 +43,17 @@ impl TxInput {
             sequence,
         }
     }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = BytesMut::with_capacity(32 + 4 + 9 + self.script_sig.content.len() + 4 + 4);
+        let mut pre_tx_id: Vec<u8> = Vec::with_capacity(32);
+        pre_tx_id.extend(self.pre_tx_id.0.iter().rev());
+        buf.put(&pre_tx_id);
+        buf.put_u32_le(self.pre_tx_index.0);
+        buf.put(&self.script_sig.serialize());
+        buf.put_u32_le(self.sequence.0);
+        buf.take().to_vec()
+    }
 }
 
 impl Display for TxInput {
@@ -71,6 +83,7 @@ impl TxHash {
         let mut buf: [u8; 32] = Default::default();
         let (input, tx_hash) = take(32usize)(input)?;
         buf.copy_from_slice(&tx_hash[..]);
+        buf.reverse();
         Ok((input, TxHash(buf)))
     }
 
@@ -104,7 +117,6 @@ impl PreTxIndex {
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
 pub struct ScriptSig {
-    len: u64,
     content: Vec<u8>,
 }
 
@@ -116,19 +128,22 @@ impl ScriptSig {
         Ok((
             input,
             ScriptSig {
-                len: script_sig_len,
                 content: content.to_vec(),
             },
         ))
+    }
+
+    pub fn serialize(&self) -> Vec<u8> {
+        let mut buf = BytesMut::with_capacity(9 + self.content.len() + 4);
+        buf.put(Varint::encode(self.content.len() as u64).unwrap());
+        buf.put(&self.content);
+        buf.take().to_vec()
     }
 }
 
 impl Default for ScriptSig {
     fn default() -> Self {
-        ScriptSig {
-            len: 0,
-            content: vec![],
-        }
+        ScriptSig { content: vec![] }
     }
 }
 
@@ -159,7 +174,7 @@ mod test {
 
         assert_eq!(
             format!("{}", pre_tx_id),
-            "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1".to_string()
+            "d1c789a9c60383bf715f3f6ad9d14b91fe55f3deb369fe5d9280cb1a01793f81".to_string()
         );
     }
 
@@ -170,7 +185,7 @@ mod test {
         assert_eq!(
             pre_tx_id,
             TxHash(hex!(
-                "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1"
+                "d1c789a9c60383bf715f3f6ad9d14b91fe55f3deb369fe5d9280cb1a01793f81"
             ))
         );
 
@@ -178,7 +193,7 @@ mod test {
         assert_eq!(pre_tx_index, PreTxIndex(0u32));
 
         let (data, script_sig) = ScriptSig::parse(&data[..]).unwrap();
-        assert_eq!(script_sig.len, 107u64);
+        assert_eq!(script_sig.content.len(), 107usize);
         assert_eq!(hex::encode(&script_sig.content), "483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278a".to_string());
 
         let (_data, seq) = TxInputSequence::parse(&data[..]).unwrap();
@@ -187,7 +202,9 @@ mod test {
         let tx_input = TxInput::new(pre_tx_id, pre_tx_index, script_sig, seq);
         assert_eq!(
             format!("{}", tx_input),
-            "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1:0".to_string()
+            "d1c789a9c60383bf715f3f6ad9d14b91fe55f3deb369fe5d9280cb1a01793f81:0".to_string()
         );
+
+        assert_eq!(hex::encode(tx_input.serialize()), "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff".to_string());
     }
 }

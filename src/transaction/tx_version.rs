@@ -15,6 +15,12 @@ impl TxVersion {
     }
 }
 
+impl From<TxVersion> for u32 {
+    fn from(version: TxVersion) -> u32 {
+        version.0
+    }
+}
+
 mod test {
     use super::TxVersion;
 

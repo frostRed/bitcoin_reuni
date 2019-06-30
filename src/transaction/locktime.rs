@@ -28,3 +28,9 @@ impl TxLocktime {
         TxLocktime(locktime)
     }
 }
+
+impl From<TxLocktime> for u32 {
+    fn from(locktime: TxLocktime) -> u32 {
+        locktime.0
+    }
+}
