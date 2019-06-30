@@ -1,4 +1,5 @@
 mod locktime;
+mod tx_fetcher;
 mod tx_input;
 mod tx_output;
 mod tx_version;
@@ -115,6 +116,8 @@ mod test {
     use super::locktime::TxLocktime;
     use super::tx_version::TxVersion;
     use super::Transaction;
+    use crate::transaction::tx_fetcher::TxFetcher;
+    use crate::transaction::tx_input::TxHash;
 
     #[test]
     fn test_tx() {

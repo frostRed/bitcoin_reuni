@@ -62,7 +62,7 @@ impl Display for TxInput {
     }
 }
 
-#[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
+#[derive(Debug, PartialOrd, PartialEq, Clone, Hash, Eq)]
 pub struct TxHash([u8; 32]);
 impl Copy for TxHash {}
 
@@ -89,6 +89,13 @@ impl TxHash {
 
     pub fn hex(&self) -> String {
         format!("{}", self)
+    }
+
+    pub fn new(hash: &[u8]) -> IResult<&[u8], Self> {
+        let mut buf: [u8; 32] = Default::default();
+        let (input, tx_hash) = take(32usize)(hash)?;
+        buf.copy_from_slice(&tx_hash[..]);
+        Ok((input, TxHash(buf)))
     }
 }
 
