@@ -3,6 +3,8 @@
 extern crate hex_literal;
 #[macro_use]
 extern crate uint;
+#[macro_use]
+extern crate failure;
 
 mod transaction;
 mod wallet;

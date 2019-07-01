@@ -11,6 +11,7 @@ use bytes::{BufMut, BytesMut};
 use itertools::Itertools;
 use nom::IResult;
 
+use crate::transaction::tx_input::TxHash;
 use locktime::TxLocktime;
 use nom::multi::count;
 use tx_input::TxInput;
@@ -62,7 +63,7 @@ impl Transaction {
         ))
     }
 
-    pub fn id(&self) -> String {
+    pub fn id(&self) -> TxHash {
         self.hash();
         unimplemented!()
     }

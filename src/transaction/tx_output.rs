@@ -7,8 +7,8 @@ use std::fmt::Display;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
 pub struct TxOutput {
-    amount: u64,
-    script_pub_key: ScriptPubKey,
+    pub amount: u64,
+    pub script_pub_key: ScriptPubKey,
 }
 
 impl Display for TxOutput {

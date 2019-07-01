@@ -1,5 +1,7 @@
 use super::varint::Varint;
 
+use crate::transaction::tx_fetcher::TxFetcher;
+use crate::transaction::Transaction;
 use bytes::{BufMut, BytesMut};
 use nom::bytes::streaming::take;
 use nom::number::complete::le_u32;
@@ -53,6 +55,21 @@ impl TxInput {
         buf.put(&self.script_sig.serialize());
         buf.put_u32_le(self.sequence.0);
         buf.take().to_vec()
+    }
+
+    pub fn fetch_tx<'a>(
+        &'a self,
+        fetcher: &'a mut TxFetcher,
+        testnet: bool,
+    ) -> Result<&'a Transaction, failure::Error> {
+        fetcher.fetch(self.pre_tx_id, testnet, false)
+    }
+
+    pub fn value(&self, fetcher: &mut TxFetcher, testnet: bool) -> u64 {
+        let tx = self
+            .fetch_tx(fetcher, testnet)
+            .expect("get pre transaction failed");
+        tx.outputs[u32::from(self.pre_tx_index) as usize].amount
     }
 }
 
@@ -112,6 +129,12 @@ impl AsRef<u32> for PreTxIndex {
 impl Display for PreTxIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+impl From<PreTxIndex> for u32 {
+    fn from(index: PreTxIndex) -> u32 {
+        index.0
     }
 }
 
