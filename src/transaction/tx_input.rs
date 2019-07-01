@@ -3,19 +3,19 @@ mod script_sig;
 mod tx_hash;
 mod tx_input_sequence;
 
-use super::varint::Varint;
+use bytes::{BufMut, BytesMut};
+use nom::IResult;
+use std::fmt::Display;
 
+use super::tx_fetcher::TxFetcher;
+use super::tx_output::ScriptPubKey;
 use super::tx_output::TxOutputAmount;
-use crate::transaction::tx_fetcher::TxFetcher;
-use crate::transaction::Transaction;
+use super::varint::Varint;
+use super::Transaction;
 pub use pre_tx_index::PreTxIndex;
 pub use script_sig::ScriptSig;
 pub use tx_hash::TxHash;
 pub use tx_input_sequence::TxInputSequence;
-
-use bytes::{BufMut, BytesMut};
-use nom::IResult;
-use std::fmt::Display;
 
 #[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
 pub struct TxInput {
@@ -77,6 +77,17 @@ impl TxInput {
             .fetch_tx(fetcher, testnet)
             .expect("get pre transaction failed");
         tx.outputs[u32::from(self.pre_tx_index) as usize].amount
+    }
+
+    pub fn script_pubkey<'a>(
+        &'a self,
+        fetcher: &'a mut TxFetcher,
+        testnet: bool,
+    ) -> &'a ScriptPubKey {
+        let tx = self
+            .fetch_tx(fetcher, testnet)
+            .expect("get pre transaction failed");
+        &tx.outputs[u32::from(self.pre_tx_index) as usize].script_pub_key
     }
 }
 
