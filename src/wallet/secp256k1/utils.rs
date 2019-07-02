@@ -40,6 +40,8 @@ pub fn encode_base58_checksum(bytes: &[u8]) -> String {
     encode_base58(&bytes)
 }
 
+// todo
+// Use Newtype as hash function return type and impl Hex trait for it
 pub fn hash160(bytes: &[u8]) -> Vec<u8> {
     let hash = Ripemd160::digest(&Sha256::digest(bytes));
     hash[0..20].iter().map(|i| *i).collect()

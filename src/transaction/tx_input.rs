@@ -10,7 +10,6 @@ use std::fmt::Display;
 use super::tx_fetcher::TxFetcher;
 use super::tx_output::ScriptPubKey;
 use super::tx_output::TxOutputAmount;
-use super::varint::Varint;
 use super::Transaction;
 pub use pre_tx_index::PreTxIndex;
 pub use script_sig::ScriptSig;

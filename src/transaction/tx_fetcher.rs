@@ -60,7 +60,6 @@ impl TxFetcher {
 mod test {
     use super::super::tx_fetcher::TxFetcher;
     use super::super::tx_input::TxHash;
-    use crate::transaction::Transaction;
 
     #[test]
     fn test_tx_fetch() {

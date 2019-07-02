@@ -1,6 +1,6 @@
 use bytes::{BufMut, BytesMut};
 use nom::bytes::streaming::take;
-use nom::{AsBytes, IResult};
+use nom::IResult;
 
 use super::super::varint::Varint;
 

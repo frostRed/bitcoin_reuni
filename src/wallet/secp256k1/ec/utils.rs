@@ -12,6 +12,8 @@ construct_uint! {
     pub struct U512(8);
 }
 
+// todo
+// U256 is used by default for calculation. If there is an overflow panic, use BigUint.
 impl U256 {
     pub fn is_even(&self) -> bool {
         self % U256::from(2u8) == U256::from(0u8)
@@ -60,6 +62,8 @@ impl U256 {
         ret.into()
     }
 
+    // todo
+    // Abstract to Hex trait
     pub fn hex(&self) -> String {
         let string = format!("{:x}", self);
         if string.len() < 64 {

@@ -8,7 +8,6 @@ mod varint;
 use crate::wallet::hash256;
 
 use bytes::{BufMut, BytesMut};
-use itertools::Itertools;
 use nom::IResult;
 
 use crate::transaction::tx_input::TxHash;
@@ -17,8 +16,9 @@ use nom::multi::count;
 use tx_input::TxInput;
 use tx_output::TxOutput;
 use tx_version::TxVersion;
-use varint::Varint;
+pub use varint::Varint;
 
+#[derive(Debug, PartialOrd, PartialEq, Clone, Hash)]
 struct Transaction {
     version: TxVersion,
     inputs: Vec<TxInput>,
@@ -117,8 +117,6 @@ mod test {
     use super::locktime::TxLocktime;
     use super::tx_version::TxVersion;
     use super::Transaction;
-    use crate::transaction::tx_fetcher::TxFetcher;
-    use crate::transaction::tx_input::TxHash;
 
     #[test]
     fn test_tx() {

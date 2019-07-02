@@ -1,6 +1,5 @@
-use failure::Error;
 use nom::bytes::streaming::take;
-use nom::{AsBytes, IResult};
+use nom::IResult;
 
 use std::fmt::Display;
 use std::str::FromStr;
