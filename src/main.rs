@@ -6,6 +6,7 @@ extern crate uint;
 #[macro_use]
 extern crate failure;
 
+mod hex;
 mod script;
 mod transaction;
 mod wallet;
