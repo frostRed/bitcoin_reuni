@@ -1,3 +1,4 @@
+use crate::wallet::Hex;
 use num_bigint::BigUint;
 use num_integer::Integer;
 use num_traits::identities::One;
@@ -48,8 +49,8 @@ impl U256 {
         (lhs * rhs % modulus).into()
     }
 
-    pub fn from_hex(str: &[u8]) -> U256 {
-        let v = BigUint::parse_bytes(str, 16u32).expect("literal number convert to BigUint failed");
+    pub fn from_hex(hex: &[u8]) -> U256 {
+        let v = BigUint::parse_bytes(hex, 16u32).expect("literal number convert to BigUint failed");
         v.into()
     }
 
@@ -61,10 +62,10 @@ impl U256 {
             BigUint::from(n1) * pow(BigUint::from(2u32), BigUint::from(128u32)) + BigUint::from(n2);
         ret.into()
     }
+}
 
-    // todo
-    // Abstract to Hex trait
-    pub fn hex(&self) -> String {
+impl Hex for U256 {
+    fn hex(&self) -> String {
         let string = format!("{:x}", self);
         if string.len() < 64 {
             std::iter::repeat("0")

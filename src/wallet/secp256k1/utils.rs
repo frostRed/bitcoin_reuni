@@ -1,9 +1,11 @@
+use crate::wallet::secp256k1::ec::utils::U256;
 use num_bigint::BigUint;
 use num_integer::div_rem;
 use num_traits::ToPrimitive;
 use ripemd160::Ripemd160;
 use sha2::{Digest, Sha256};
 use std::ops::Deref;
+use std::str::FromStr;
 
 pub fn encode_base58(bytes: &[u8]) -> String {
     let base58_alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -50,6 +52,21 @@ impl Hash256 {
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
     }
+
+    pub fn new(data: &[u8]) -> Self {
+        assert_eq!(data.len(), 32);
+        let mut buf: [u8; 32] = Default::default();
+        buf.copy_from_slice(&data[0..32]);
+        Hash256(buf)
+    }
+}
+
+impl From<U256> for Hash256 {
+    fn from(u256: U256) -> Hash256 {
+        let mut buf: [u8; 32] = Default::default();
+        u256.to_little_endian(&mut buf);
+        Hash256(buf)
+    }
 }
 
 impl Deref for Hash256 {
@@ -66,6 +83,13 @@ impl Copy for Hash160 {}
 impl Hash160 {
     pub fn to_vec(&self) -> Vec<u8> {
         self.0.to_vec()
+    }
+
+    pub fn new(data: &[u8]) -> Self {
+        assert_eq!(data.len(), 20);
+        let mut buf: [u8; 20] = Default::default();
+        buf.copy_from_slice(&data[0..20]);
+        Hash160(buf)
     }
 }
 

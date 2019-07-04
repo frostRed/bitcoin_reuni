@@ -3,14 +3,9 @@ use nom::bytes::streaming::take;
 use nom::number::complete::{le_u16, le_u8};
 use nom::IResult;
 
-use crate::hex::Hex;
 use crate::transaction::Varint;
-use crate::wallet::{hash160, hash256};
-use std::ops::Add;
-
-trait Op {
-    fn execute(&self, stack: &mut Stack) -> bool;
-}
+use crate::wallet::{hash160, hash256, Hash256, Hex, S256Point, Signature};
+use std::ops::{Add, Deref};
 
 #[derive(Fail, Debug)]
 pub enum ScriptError {
@@ -20,6 +15,8 @@ pub enum ScriptError {
     NomParseError,
     #[fail(display = "serialize too long element error")]
     SerializeTooLongError,
+    #[fail(display = "op code: {} evaluate error", _0)]
+    OpCodeEvaluateError(u8),
 }
 
 type Stack = Vec<StackElement>;
@@ -30,17 +27,28 @@ pub enum StackElement {
     OpCode(OpCode),
 }
 
+impl Deref for StackElement {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        match self {
+            StackElement::DataElement(ref data) => &*data,
+            _ => unreachable!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
-struct OpCode {
+pub struct OpCode {
     num: u8,
     kind: OpCodeKind,
 }
 
 #[derive(Debug, Clone)]
-enum OpCodeKind {
+pub enum OpCodeKind {
     OpDup,
     OpHash256,
     OpHash160,
+    OpCheckSig,
     Unknown,
 }
 
@@ -50,10 +58,27 @@ impl OpCode {
             0x76_u8 => OpCodeKind::OpDup,
             0xaa_u8 => OpCodeKind::OpHash256,
             0xa9_u8 => OpCodeKind::OpHash160,
+            0xac_u8 => OpCodeKind::OpCheckSig,
             _ => OpCodeKind::Unknown,
         };
         OpCode { num: code, kind }
     }
+
+    pub fn operation(&self) -> OperationType {
+        match self.kind {
+            OpCodeKind::OpDup => OperationType::Stack(Box::new(op_dup)),
+            OpCodeKind::OpHash256 => OperationType::Stack(Box::new(op_hash256)),
+            OpCodeKind::OpHash160 => OperationType::Stack(Box::new(op_hash160)),
+            OpCodeKind::OpCheckSig => OperationType::StackSig(Box::new(op_check_sig)),
+            OpCodeKind::Unknown => OperationType::Stack(Box::new(op_unknown)),
+        }
+    }
+}
+
+pub enum OperationType {
+    Stack(Box<dyn Fn(&mut Stack) -> bool>),
+    StackSig(Box<dyn Fn(&mut Stack, Hash256) -> bool>),
+    StackStack(Box<dyn Fn(&mut Stack, &mut Stack) -> bool>),
 }
 
 fn op_dup(stack: &mut Stack) -> bool {
@@ -81,7 +106,7 @@ fn op_hash256(stack: &mut Stack) -> bool {
         StackElement::DataElement(d) => {
             let d = (*d).clone();
             let hash = hash256(&d[..]);
-            stack.push(StackElement::DataElement(hash));
+            stack.push(StackElement::DataElement(hash.to_vec()));
         }
         _ => unreachable!(),
     }
@@ -98,11 +123,28 @@ fn op_hash160(stack: &mut Stack) -> bool {
         StackElement::DataElement(d) => {
             let d = (*d).clone();
             let hash = hash160(&d[..]);
-            stack.push(StackElement::DataElement(hash));
+            stack.push(StackElement::DataElement(hash.to_vec()));
         }
         _ => unreachable!(),
     }
     true
+}
+
+fn op_unknown(stack: &mut Stack) -> bool {
+    false
+}
+
+fn op_check_sig(stack: &mut Stack, hash: Hash256) -> bool {
+    if stack.len() < 2 {
+        return false;
+    }
+    let sec = stack.pop().expect("stack can not pop");
+    let sig = stack.pop().expect("stack can not pop");
+
+    let point = S256Point::parse_sec(&sec);
+    let sig = Signature::parse_der(&sig);
+
+    point.verify(hash, sig)
 }
 
 pub struct Script {
@@ -110,6 +152,18 @@ pub struct Script {
 }
 
 impl Script {
+    pub fn new() -> Self {
+        Script { cmds: Vec::new() }
+    }
+
+    pub fn push_opcode(&mut self, opcode: OpCode) {
+        self.cmds.push(StackElement::OpCode(opcode))
+    }
+
+    pub fn push_data_ele(&mut self, data: &[u8]) {
+        self.cmds.push(StackElement::DataElement(data.to_vec()))
+    }
+
     // todo
     // How to chain the error of nom and failure
     pub fn parse(input: &[u8]) -> Result<(&[u8], Self), ScriptError> {
@@ -164,7 +218,7 @@ impl Script {
         Ok((input, (count == length, cmds)))
     }
 
-    fn serialize(&self) -> Result<Vec<u8>, ScriptError> {
+    pub fn serialize(&self) -> Result<Vec<u8>, ScriptError> {
         let mut buf_len = 9usize + 9 + 4;
         for i in &self.cmds {
             match i {
@@ -200,6 +254,79 @@ impl Script {
         let mut ret = buf.take().to_vec();
         ret.append(&mut raw_ret);
         Ok(ret)
+    }
+
+    pub fn evaluate(&self, hash: Option<Hash256>) -> Result<bool, ScriptError> {
+        let mut cmds = self.cmds.clone();
+        let mut stack = Stack::new();
+        let mut altstack = Stack::new();
+        while cmds.len() > 0 {
+            let cmd = cmds.remove(0);
+            match cmd {
+                StackElement::DataElement(d) => stack.push(StackElement::DataElement(d)),
+                StackElement::OpCode(opcode) => {
+                    let opcode_num = opcode.num;
+                    let operation = opcode.operation();
+                    if opcode_num >= 99 && opcode_num <= 100 {
+                        match operation {
+                            OperationType::StackStack(operation) => {
+                                if !(*operation)(&mut stack, &mut cmds) {
+                                    return Err(ScriptError::OpCodeEvaluateError(opcode_num));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    } else if opcode_num >= 107 && opcode_num <= 108 {
+                        match operation {
+                            OperationType::StackStack(operation) => {
+                                if !(*operation)(&mut stack, &mut altstack) {
+                                    return Err(ScriptError::OpCodeEvaluateError(opcode_num));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    } else if opcode_num >= 172 && opcode_num <= 175 {
+                        match operation {
+                            OperationType::StackSig(operation) => {
+                                if !(*operation)(
+                                    &mut stack,
+                                    hash.expect("this op code need a hash256"),
+                                ) {
+                                    return Err(ScriptError::OpCodeEvaluateError(opcode_num));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    } else {
+                        match operation {
+                            OperationType::Stack(operation) => {
+                                if !(*operation)(&mut stack) {
+                                    return Err(ScriptError::OpCodeEvaluateError(opcode_num));
+                                }
+                            }
+                            _ => unreachable!(),
+                        }
+                    }
+                }
+            }
+        }
+
+        if stack.is_empty() {
+            return Ok(false);
+        }
+        if let Some(i) = stack.pop() {
+            match i {
+                StackElement::DataElement(data) => {
+                    if data.is_empty() {
+                        return Ok(false);
+                    }
+                }
+                _ => {
+                    return Ok(true);
+                }
+            }
+        }
+        Ok(true)
     }
 }
 
@@ -248,10 +375,10 @@ impl Add<Self> for &Script {
     }
 }
 
-mod teset {
-    use crate::hex::Hex;
-    use crate::script::Script;
+mod test {
     use crate::script::StackElement;
+    use crate::script::{OpCode, Script};
+    use crate::wallet::{Hash256, Hex};
 
     #[test]
     fn test_script_parse() {
@@ -280,5 +407,23 @@ mod teset {
             script.serialize().unwrap().hex(),
             "6a47304402207899531a52d59a6de200179928ca900254a36b8dff8bb75f5f5d71b1cdc26125022008b422690b8461cb52c3cc30330b23d574351872b7c361e9aae3649071c1a7160121035d5c93d9ac96881f19ba1f686f15f009ded7c62efe85a872e6a19b43c15a2937".to_string()
         );
+    }
+
+    #[test]
+    fn test_script_evaluation() {
+        let mut script_pubkey = Script::new();
+        let data = hex!("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34");
+        script_pubkey.push_data_ele(&data);
+        script_pubkey.push_opcode(OpCode::new(0xac));
+
+        let mut script_sig = Script::new();
+        let data = hex!("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601");
+        script_sig.push_data_ele(&data);
+
+        let combined_script = script_sig + &script_pubkey;
+
+        let hash = hex!("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d");
+        let hash = Hash256::new(&hash);
+        //        assert!(combined_script.evaluate(Some(hash)).unwrap());
     }
 }

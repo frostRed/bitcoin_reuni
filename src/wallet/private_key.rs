@@ -2,6 +2,7 @@ use super::secp256k1::ec::utils::U256;
 use super::secp256k1::s256_point::{S256Point, Secp256K1EllipticCurve};
 use super::secp256k1::signature::Signature;
 use super::secp256k1::utils::encode_base58_checksum;
+use crate::wallet::Hex;
 use bytes::{BufMut, BytesMut};
 use hmac::{Hmac, Mac};
 use num_bigint::BigUint;
@@ -25,10 +26,6 @@ impl PrivateKey {
             secret,
             point: S256Point::gen_point() * secret,
         }
-    }
-
-    pub fn hex(&self) -> String {
-        self.secret.hex()
     }
 
     pub fn sign(&self, z: U256) -> Signature {
@@ -123,9 +120,16 @@ impl PrivateKey {
     }
 }
 
+impl Hex for PrivateKey {
+    fn hex(&self) -> String {
+        self.secret.hex()
+    }
+}
+
 mod test {
     use super::super::secp256k1::ec::utils::{pow, U256};
     use super::PrivateKey;
+    use crate::wallet::Hash256;
     use num_bigint::BigUint;
 
     #[test]
@@ -188,6 +192,6 @@ mod test {
         let pk = PrivateKey::new(U256::from(333u16));
         let z = U256::from(999u16);
         let sig = pk.sign(z);
-        assert_eq!(pk.point.verify(z, sig), true);
+        assert_eq!(pk.point.verify(Hash256::from(z), sig), true);
     }
 }

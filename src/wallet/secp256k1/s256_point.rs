@@ -6,6 +6,7 @@ use super::ec::utils::U256;
 use super::signature::Signature;
 use super::utils::{encode_base58_checksum, hash160};
 use crate::wallet::secp256k1::utils::Hash160;
+use crate::wallet::Hash256;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -130,7 +131,8 @@ impl S256Point {
         }
     }
 
-    pub fn verify(&self, z: U256, sig: Signature) -> bool {
+    pub fn verify(&self, z: Hash256, sig: Signature) -> bool {
+        let z = U256::from_little_endian(&z);
         let n = Secp256K1EllipticCurve::n();
         let s_inv = sig.s.modpow(n - U256::from(2u32), n);
 
@@ -304,6 +306,7 @@ mod test {
     use super::super::ec::utils::U256;
     use super::super::s256_point::{S256Point, Secp256K1EllipticCurve};
     use super::super::signature::Signature;
+    use crate::wallet::Hash256;
     use num_bigint::BigUint;
 
     #[test]
@@ -326,7 +329,7 @@ mod test {
         let py =
             U256::from_hex(b"82b51eab8c27c66e26c858a079bcdf4f1ada34cec420cafc7eac1a42216fb6c4");
         let point = S256Point::new(px.into(), py.into()).unwrap();
-        assert!(point.verify(z, sig))
+        assert!(point.verify(Hash256::from(z), sig))
     }
 
     #[test]
@@ -372,7 +375,7 @@ mod test {
             "0x".to_string() + &format!("{:x}", s)
         );
 
-        assert!(point.verify(z, Signature::new(r, s)))
+        assert!(point.verify(Hash256::from(z), Signature::new(r, s)))
     }
 
     #[test]
