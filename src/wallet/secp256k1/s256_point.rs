@@ -5,6 +5,7 @@ use super::ec::point::PointError;
 use super::ec::utils::U256;
 use super::signature::Signature;
 use super::utils::{encode_base58_checksum, hash160};
+use crate::wallet::secp256k1::utils::Hash160;
 use std::fmt;
 use std::ops::{Add, Mul};
 
@@ -218,7 +219,7 @@ impl S256Point {
         }
     }
 
-    pub fn hash160(&self, compressed: bool) -> Vec<u8> {
+    pub fn hash160(&self, compressed: bool) -> Hash160 {
         if compressed {
             hash160(&self.compressed_sec())
         } else {

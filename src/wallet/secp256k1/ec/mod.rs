@@ -1,4 +1,5 @@
 pub mod field_element;
+pub mod hex;
 pub mod point;
 mod point_int;
 pub mod utils;

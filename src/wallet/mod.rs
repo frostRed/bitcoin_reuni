@@ -1,5 +1,8 @@
 pub mod private_key;
 mod secp256k1;
 
+pub use secp256k1::ec::hex::Hex;
 pub use secp256k1::utils::hash160;
 pub use secp256k1::utils::hash256;
+pub use secp256k1::utils::Hash160;
+pub use secp256k1::utils::Hash256;

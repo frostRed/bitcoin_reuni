@@ -3,6 +3,7 @@ use num_integer::div_rem;
 use num_traits::ToPrimitive;
 use ripemd160::Ripemd160;
 use sha2::{Digest, Sha256};
+use std::ops::Deref;
 
 pub fn encode_base58(bytes: &[u8]) -> String {
     let base58_alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -40,30 +41,67 @@ pub fn encode_base58_checksum(bytes: &[u8]) -> String {
     encode_base58(&bytes)
 }
 
-// todo
-// Use Newtype as hash function return type and impl Hex trait for it
-pub fn hash160(bytes: &[u8]) -> Vec<u8> {
-    let hash = Ripemd160::digest(&Sha256::digest(bytes));
-    hash[0..20].iter().map(|i| *i).collect()
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hash256([u8; 32]);
+
+impl Copy for Hash256 {}
+
+impl Hash256 {
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
 }
 
-pub fn hash256(bytes: &[u8]) -> Vec<u8> {
+impl Deref for Hash256 {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Hash160([u8; 20]);
+impl Copy for Hash160 {}
+
+impl Hash160 {
+    pub fn to_vec(&self) -> Vec<u8> {
+        self.0.to_vec()
+    }
+}
+
+impl Deref for Hash160 {
+    type Target = [u8];
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+pub fn hash160(bytes: &[u8]) -> Hash160 {
+    let hash = Ripemd160::digest(&Sha256::digest(bytes));
+    let mut buf: [u8; 20] = Default::default();
+    buf.copy_from_slice(&hash[0..20]);
+    Hash160(buf)
+}
+
+pub fn hash256(bytes: &[u8]) -> Hash256 {
     // tow rounds of sha256
     let hash = Sha256::digest(&Sha256::digest(bytes));
-    hash[0..32].iter().map(|i| *i).collect()
+    let mut buf: [u8; 32] = Default::default();
+    buf.copy_from_slice(&hash[0..32]);
+    Hash256(buf)
 }
 
 mod test {
-    use super::{encode_base58, encode_base58_checksum, hash160, hash256};
+    use super::{encode_base58, encode_base58_checksum, hash160, hash256, Hash160, Hash256};
 
     #[test]
     fn test_hash160() {
         let v = b"1";
         assert_eq!(
-            vec![
+            Hash160([
                 67, 30, 206, 201, 78, 10, 146, 10, 121, 114, 176, 132, 220, 250, 187, 214, 159, 97,
                 105, 18
-            ],
+            ]),
             hash160(v)
         );
     }
@@ -81,10 +119,10 @@ mod test {
     fn test_hash256() {
         let v = b"1";
         assert_eq!(
-            vec![
+            Hash256([
                 156, 46, 77, 143, 233, 125, 136, 20, 48, 222, 78, 117, 75, 66, 5, 185, 194, 124,
                 233, 103, 21, 35, 28, 255, 196, 51, 115, 64, 203, 17, 2, 128
-            ],
+            ]),
             hash256(v)
         );
     }

@@ -11,6 +11,7 @@ use super::tx_fetcher::TxFetcher;
 use super::tx_output::ScriptPubKey;
 use super::tx_output::TxOutputAmount;
 use super::Transaction;
+use crate::wallet::Hex;
 pub use pre_tx_index::PreTxIndex;
 pub use script_sig::ScriptSig;
 pub use tx_hash::TxHash;
@@ -96,7 +97,14 @@ impl Display for TxInput {
     }
 }
 
+impl Hex for TxInput {
+    fn hex(&self) -> String {
+        hex::encode(self.serialize())
+    }
+}
+
 mod test {
+    use super::super::super::wallet::Hex;
     use super::{PreTxIndex, ScriptSig, TxHash, TxInput, TxInputSequence};
     use std::str::FromStr;
 
@@ -137,6 +145,6 @@ mod test {
             "d1c789a9c60383bf715f3f6ad9d14b91fe55f3deb369fe5d9280cb1a01793f81:0".to_string()
         );
 
-        assert_eq!(hex::encode(tx_input.serialize()), "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff".to_string());
+        assert_eq!(tx_input.hex(), "813f79011acb80925dfe69b3def355fe914bd1d96a3f5f71bf8303c6a989c7d1000000006b483045022100ed81ff192e75a3fd2304004dcadb746fa5e24c5031ccfcf21320b0277457c98f02207a986d955c6e0cb35d446a89d3f56100f4d7f67801c31967743a9c8e10615bed01210349fc4e631e3624a545de3f89f5d8684c7b8138bd94bdd531d2e213bf016b278afeffffff".to_string());
     }
 }
