@@ -1,4 +1,5 @@
 # programming_bitcoin 
+[![CircleCI](https://circleci.com/gh/frostRed/programming_bitcoin.svg?style=svg)](https://circleci.com/gh/frostRed/programming_bitcoin)
 
 **WIF**
 
