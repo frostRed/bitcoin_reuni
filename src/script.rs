@@ -139,12 +139,18 @@ fn op_check_sig(stack: &mut Stack, hash: Hash256) -> bool {
         return false;
     }
     let sec = stack.pop().expect("stack can not pop");
+
     let sig = stack.pop().expect("stack can not pop");
 
     let point = S256Point::parse_sec(&sec);
-    let sig = Signature::parse_der(&sig);
+    let sig = Signature::parse_der(&sig[0..(sig.len() - 1)]);
 
-    point.verify(hash, sig)
+    if point.verify(hash, sig) {
+        stack.push(StackElement::DataElement(encode_num(1)));
+    } else {
+        stack.push(StackElement::DataElement(encode_num(0)));
+    }
+    true
 }
 
 pub struct Script {
@@ -260,6 +266,7 @@ impl Script {
         let mut cmds = self.cmds.clone();
         let mut stack = Stack::new();
         let mut altstack = Stack::new();
+
         while cmds.len() > 0 {
             let cmd = cmds.remove(0);
             match cmd {
@@ -375,10 +382,36 @@ impl Add<Self> for &Script {
     }
 }
 
+fn encode_num(num: i8) -> Vec<u8> {
+    if num == 0 {
+        return vec![];
+    }
+    let mut abs_num = num.abs() as u8;
+    let negative = if num < 0 { true } else { false };
+
+    let mut result = vec![];
+    while abs_num != 0 {
+        result.push(abs_num & 0xff);
+        abs_num = abs_num.checked_shr(8).unwrap_or(0);
+    }
+
+    if let Some(last) = result.last_mut() {
+        if *last & 0x80 > 0 {
+            if negative {
+                result.push(0x80_u8);
+            } else {
+                result.push(0);
+            }
+        } else if negative {
+            *last |= 0x80;
+        }
+    }
+    result
+}
+
 mod test {
-    use crate::script::StackElement;
     use crate::script::{OpCode, Script};
-    use crate::wallet::{Hash256, Hex};
+    use crate::wallet::{FromHex, Hash256, Hex};
 
     #[test]
     fn test_script_parse() {
@@ -412,18 +445,18 @@ mod test {
     #[test]
     fn test_script_evaluation() {
         let mut script_pubkey = Script::new();
-        let data = hex!("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34");
-        script_pubkey.push_data_ele(&data);
+        let sec_bytes = hex!("04887387e452b8eacc4acfde10d9aaf7f6d9a0f975aabb10d006e4da568744d06c61de6d95231cd89026e286df3b6ae4a894a3378e393e93a0f45b666329a0ae34");
+        script_pubkey.push_data_ele(&sec_bytes);
         script_pubkey.push_opcode(OpCode::new(0xac));
 
         let mut script_sig = Script::new();
-        let data = hex!("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601");
-        script_sig.push_data_ele(&data);
+        let sig_bytes = hex!("3045022000eff69ef2b1bd93a66ed5219add4fb51e11a840f404876325a1e8ffe0529a2c022100c7207fee197d27c618aea621406f6bf5ef6fca38681d82b2f06fddbdce6feab601");
+        script_sig.push_data_ele(&sig_bytes);
 
         let combined_script = script_sig + &script_pubkey;
 
-        let hash = hex!("7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d");
-        let hash = Hash256::new(&hash);
-        //        assert!(combined_script.evaluate(Some(hash)).unwrap());
+        let hash =
+            Hash256::from_hex(b"7c076ff316692a3d7eb3c3bb0f8b1488cf72e1afcd929e29307032997a838a3d");
+        assert!(combined_script.evaluate(Some(hash)).unwrap());
     }
 }

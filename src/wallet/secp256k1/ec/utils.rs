@@ -62,6 +62,12 @@ impl U256 {
             BigUint::from(n1) * pow(BigUint::from(2u32), BigUint::from(128u32)) + BigUint::from(n2);
         ret.into()
     }
+
+    pub fn as_bytes(&self) -> [u8; 32] {
+        let mut buf = [0u8; 32];
+        self.to_little_endian(&mut buf);
+        buf
+    }
 }
 
 impl Hex for U256 {

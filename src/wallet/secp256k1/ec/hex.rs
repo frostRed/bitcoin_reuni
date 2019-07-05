@@ -8,6 +8,16 @@ impl Hex for Vec<u8> {
     }
 }
 
+impl Hex for &[u8] {
+    fn hex(&self) -> String {
+        hex::encode(self)
+    }
+}
+
+pub trait FromHex {
+    fn from_hex(hex: &[u8]) -> Self;
+}
+
 mod test {
     use super::Hex;
 

@@ -1,4 +1,3 @@
-use crate::wallet::secp256k1::ec::utils::U256;
 use num_bigint::BigUint;
 use num_integer::div_rem;
 use num_traits::ToPrimitive;
@@ -6,6 +5,9 @@ use ripemd160::Ripemd160;
 use sha2::{Digest, Sha256};
 use std::ops::Deref;
 use std::str::FromStr;
+
+use crate::wallet::secp256k1::ec::hex::{FromHex, Hex};
+use crate::wallet::secp256k1::ec::utils::U256;
 
 pub fn encode_base58(bytes: &[u8]) -> String {
     let base58_alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
@@ -76,6 +78,19 @@ impl Deref for Hash256 {
     }
 }
 
+impl Hex for Hash256 {
+    fn hex(&self) -> String {
+        hex::encode(&self.0)
+    }
+}
+
+impl FromHex for Hash256 {
+    fn from_hex(hex: &[u8]) -> Self {
+        let u256 = U256::from_hex(hex);
+        Hash256(u256.as_bytes())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hash160([u8; 20]);
 impl Copy for Hash160 {}
@@ -97,6 +112,12 @@ impl Deref for Hash160 {
     type Target = [u8];
     fn deref(&self) -> &Self::Target {
         &self.0
+    }
+}
+
+impl Hex for Hash160 {
+    fn hex(&self) -> String {
+        hex::encode(&self.0)
     }
 }
 

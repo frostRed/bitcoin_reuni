@@ -306,7 +306,7 @@ mod test {
     use super::super::ec::utils::U256;
     use super::super::s256_point::{S256Point, Secp256K1EllipticCurve};
     use super::super::signature::Signature;
-    use crate::wallet::Hash256;
+    use crate::wallet::{Hash256, Hex};
     use num_bigint::BigUint;
 
     #[test]
@@ -375,7 +375,9 @@ mod test {
             "0x".to_string() + &format!("{:x}", s)
         );
 
-        assert!(point.verify(Hash256::from(z), Signature::new(r, s)))
+        let sig = Signature::new(r, s);
+        let hash = Hash256::from(z);
+        assert!(point.verify(hash, sig))
     }
 
     #[test]
