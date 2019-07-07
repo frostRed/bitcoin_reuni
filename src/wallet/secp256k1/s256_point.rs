@@ -306,7 +306,7 @@ mod test {
     use super::super::ec::utils::U256;
     use super::super::s256_point::{S256Point, Secp256K1EllipticCurve};
     use super::super::signature::Signature;
-    use crate::wallet::{Hash256, Hex};
+    use crate::wallet::Hash256;
     use num_bigint::BigUint;
 
     #[test]

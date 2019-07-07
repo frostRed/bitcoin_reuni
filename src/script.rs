@@ -1,11 +1,17 @@
+mod op_function;
+mod stack_element;
+
 use bytes::{BufMut, BytesMut};
 use nom::bytes::streaming::take;
 use nom::number::complete::{le_u16, le_u8};
 use nom::IResult;
 
+use std::ops::Add;
+
 use crate::transaction::Varint;
-use crate::wallet::{hash160, hash256, Hash256, Hex, S256Point, Signature};
-use std::ops::{Add, Deref};
+use crate::wallet::{Hash256, Hex};
+use op_function::Stack;
+use stack_element::{OpCode, OperationType, StackElement};
 
 #[derive(Fail, Debug)]
 pub enum ScriptError {
@@ -17,140 +23,6 @@ pub enum ScriptError {
     SerializeTooLongError,
     #[fail(display = "op code: {} evaluate error", _0)]
     OpCodeEvaluateError(u8),
-}
-
-type Stack = Vec<StackElement>;
-
-#[derive(Debug, Clone)]
-pub enum StackElement {
-    DataElement(Vec<u8>),
-    OpCode(OpCode),
-}
-
-impl Deref for StackElement {
-    type Target = [u8];
-    fn deref(&self) -> &Self::Target {
-        match self {
-            StackElement::DataElement(ref data) => &*data,
-            _ => unreachable!(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct OpCode {
-    num: u8,
-    kind: OpCodeKind,
-}
-
-#[derive(Debug, Clone)]
-pub enum OpCodeKind {
-    OpDup,
-    OpHash256,
-    OpHash160,
-    OpCheckSig,
-    Unknown,
-}
-
-impl OpCode {
-    pub fn new(code: u8) -> Self {
-        let kind = match code {
-            0x76_u8 => OpCodeKind::OpDup,
-            0xaa_u8 => OpCodeKind::OpHash256,
-            0xa9_u8 => OpCodeKind::OpHash160,
-            0xac_u8 => OpCodeKind::OpCheckSig,
-            _ => OpCodeKind::Unknown,
-        };
-        OpCode { num: code, kind }
-    }
-
-    pub fn operation(&self) -> OperationType {
-        match self.kind {
-            OpCodeKind::OpDup => OperationType::Stack(Box::new(op_dup)),
-            OpCodeKind::OpHash256 => OperationType::Stack(Box::new(op_hash256)),
-            OpCodeKind::OpHash160 => OperationType::Stack(Box::new(op_hash160)),
-            OpCodeKind::OpCheckSig => OperationType::StackSig(Box::new(op_check_sig)),
-            OpCodeKind::Unknown => OperationType::Stack(Box::new(op_unknown)),
-        }
-    }
-}
-
-pub enum OperationType {
-    Stack(Box<dyn Fn(&mut Stack) -> bool>),
-    StackSig(Box<dyn Fn(&mut Stack, Hash256) -> bool>),
-    StackStack(Box<dyn Fn(&mut Stack, &mut Stack) -> bool>),
-}
-
-fn op_dup(stack: &mut Stack) -> bool {
-    if stack.len() < 1 {
-        return false;
-    }
-    let last = stack.last().unwrap();
-    match last {
-        StackElement::DataElement(d) => {
-            let d = (*d).clone();
-            stack.push(StackElement::DataElement(d));
-        }
-        _ => unreachable!(),
-    }
-    true
-}
-
-fn op_hash256(stack: &mut Stack) -> bool {
-    if stack.len() < 1 {
-        return false;
-    }
-
-    let last = stack.last().unwrap();
-    match last {
-        StackElement::DataElement(d) => {
-            let d = (*d).clone();
-            let hash = hash256(&d[..]);
-            stack.push(StackElement::DataElement(hash.to_vec()));
-        }
-        _ => unreachable!(),
-    }
-    true
-}
-
-fn op_hash160(stack: &mut Stack) -> bool {
-    if stack.len() < 1 {
-        return false;
-    }
-
-    let last = stack.last().unwrap();
-    match last {
-        StackElement::DataElement(d) => {
-            let d = (*d).clone();
-            let hash = hash160(&d[..]);
-            stack.push(StackElement::DataElement(hash.to_vec()));
-        }
-        _ => unreachable!(),
-    }
-    true
-}
-
-fn op_unknown(stack: &mut Stack) -> bool {
-    false
-}
-
-fn op_check_sig(stack: &mut Stack, hash: Hash256) -> bool {
-    if stack.len() < 2 {
-        return false;
-    }
-    let sec = stack.pop().expect("stack can not pop");
-
-    let sig = stack.pop().expect("stack can not pop");
-
-    let point = S256Point::parse_sec(&sec);
-    let sig = Signature::parse_der(&sig[0..(sig.len() - 1)]);
-
-    if point.verify(hash, sig) {
-        stack.push(StackElement::DataElement(encode_num(1)));
-    } else {
-        stack.push(StackElement::DataElement(encode_num(0)));
-    }
-    true
 }
 
 pub struct Script {
@@ -236,7 +108,7 @@ impl Script {
         let mut buf = BytesMut::with_capacity(buf_len);
         for i in &self.cmds {
             match i {
-                StackElement::OpCode(op_code) => buf.put_u8(op_code.num),
+                StackElement::OpCode(op_code) => buf.put_u8(op_code.num()),
                 StackElement::DataElement(data) => {
                     let len = data.len();
                     if len < 0x4b {
@@ -272,7 +144,7 @@ impl Script {
             match cmd {
                 StackElement::DataElement(d) => stack.push(StackElement::DataElement(d)),
                 StackElement::OpCode(opcode) => {
-                    let opcode_num = opcode.num;
+                    let opcode_num = opcode.num();
                     let operation = opcode.operation();
                     if opcode_num >= 99 && opcode_num <= 100 {
                         match operation {
@@ -337,25 +209,6 @@ impl Script {
     }
 }
 
-impl Hex for StackElement {
-    fn hex(&self) -> String {
-        match self {
-            StackElement::OpCode(op_code) => vec![op_code.num].hex(),
-            StackElement::DataElement(datas) => datas.hex(),
-        }
-    }
-}
-
-impl Hex for Stack {
-    fn hex(&self) -> String {
-        let mut ret = String::new();
-        for i in self {
-            ret += &i.hex();
-        }
-        ret
-    }
-}
-
 impl Hex for Script {
     fn hex(&self) -> String {
         self.cmds.hex()
@@ -380,33 +233,6 @@ impl Add<Self> for &Script {
         cmds.append(&mut rhs_cmds);
         Script { cmds }
     }
-}
-
-fn encode_num(num: i8) -> Vec<u8> {
-    if num == 0 {
-        return vec![];
-    }
-    let mut abs_num = num.abs() as u8;
-    let negative = if num < 0 { true } else { false };
-
-    let mut result = vec![];
-    while abs_num != 0 {
-        result.push(abs_num & 0xff);
-        abs_num = abs_num.checked_shr(8).unwrap_or(0);
-    }
-
-    if let Some(last) = result.last_mut() {
-        if *last & 0x80 > 0 {
-            if negative {
-                result.push(0x80_u8);
-            } else {
-                result.push(0);
-            }
-        } else if negative {
-            *last |= 0x80;
-        }
-    }
-    result
 }
 
 mod test {
